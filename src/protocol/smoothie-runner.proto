@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+service SmoothieRunnerAPI {
+    rpc UpdateCache(String) returns (String) {}
+    rpc TestSolution(stream TestSolutionRequest) returns (stream TestSolutionResponse) {}
+}
+
+// testing requests
+
+message TestSolutionRequest {
+    Solution solution = 1;
+    bool testBatchEvenIfFailed = 2; // test all cases in batch even if one failed
+    bool cancelTesting = 3; // cancel the entire operation
+}
+
+message Solution {
+    Problem problem = 1;
+    string language = 2;
+    string code = 3;
+}
+
+message Problem {
+    repeated ProblemBatch testBatches = 1;
+    int64 problemID = 2;
+    int64 testCasesHashCode = 3; // hash of testBatches, to update cache if need be
+}
+
+message ProblemBatch {
+    repeated ProblemBatchCase cases = 1;
+}
+
+message ProblemBatchCase {
+    string correctAnswer = 1;
+    double timeLimit = 2;
+    double memLimit = 3;
+}
+
+// server test responses
+
+message TestSolutionResponse {
+    TestCaseResult testCaseResult = 1;
+    bool completedTesting = 2; // if the testing has completed (even on failure)
+    string compileError = 3; // the compile error if there is one
+}
+
+message TestCaseResult {
+    int64 batchNumber = 1;
+    int64 caseNumber = 2;
+    string result = 3; // WA, AC, etc...
+    string resultInfo = 4; // runtime error
+    double time = 5;
+    double memUsage = 6;
+}
+
+message String {
+    string str = 1;
+}
