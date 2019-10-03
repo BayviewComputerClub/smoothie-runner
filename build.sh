@@ -1,6 +1,5 @@
-
 #!/bin/bash
 
-cd src/main
+cd main
 go build ./...
-mv ./smoothie-runner ../../
+mv ./smoothie-runner ../
