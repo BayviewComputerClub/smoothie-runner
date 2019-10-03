@@ -1,3 +1,3 @@
-module smoothie-runner
+module github.com/BayviewComputerClub/smoothie-runner
 
-go 1.11
+go 1.13
