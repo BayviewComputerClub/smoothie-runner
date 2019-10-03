@@ -12,12 +12,6 @@ var (
 	commands = make(map[string]interface{})
 )
 
-func init() {
-	commands["help"] = commandHelp
-	commands["version"] = commandVersion
-
-}
-
 func commandHelp(input string) {
 	println("----- Help -----")
 	println("version | Get the smoothie-runner version.")

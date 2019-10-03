@@ -1,7 +1,6 @@
 syntax = "proto3";
 
 service SmoothieRunnerAPI {
-    rpc UpdateCache(String) returns (String) {}
     rpc TestSolution(stream TestSolutionRequest) returns (stream TestSolutionResponse) {}
 }
 
@@ -50,8 +49,4 @@ message TestCaseResult {
     string resultInfo = 4; // runtime error
     double time = 5;
     double memUsage = 6;
-}
-
-message String {
-    string str = 1;
 }

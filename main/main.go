@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 )
@@ -13,8 +14,30 @@ const (
 )
 
 var (
+	PORT int
 
 )
+
+func getEnv(key string, def string) string {
+	e := os.Getenv(key)
+	if e == "" {
+		return def
+	}
+	return e
+}
+
+func init() {
+	// init commands
+	commands["help"] = commandHelp
+	commands["version"] = commandVersion
+
+	// environment variables
+	var err error
+	PORT, err = strconv.Atoi(getEnv("PORT", "6821"))
+	if err != nil {
+		panic(err)
+	}
+}
 
 func info(output string) {
 	log.Println(time.Now().Format("2006-01-02 15:04:05") + " [INFO] " + output)
@@ -22,6 +45,10 @@ func info(output string) {
 
 func warn(output string) {
 	log.Println(time.Now().Format("2006-01-02 15:04:05") + " [WARN] " + output)
+}
+
+func fatal(output string) {
+	log.Fatal(output)
 }
 
 func main() {
@@ -36,6 +63,7 @@ func main() {
 		done <- true
 	}()
 
+	startApiServer()
 	go listenInput()
 
 	<-done // listen for sigint and sigterm
