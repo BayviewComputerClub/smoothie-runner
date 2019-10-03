@@ -38,6 +38,9 @@ func startApiServer() {
 	if err != nil {
 		fatal("IPC listen error (check if port has been taken):" + err.Error())
 	}
+
+	smoothieRunner = grpc.NewServer()
+
 	pb.RegisterSmoothieRunnerAPIServer(smoothieRunner, &SmoothieRunnerAPI{})
 	info("Started API on port " + strconv.Itoa(PORT))
 	go smoothieRunner.Serve(lis)

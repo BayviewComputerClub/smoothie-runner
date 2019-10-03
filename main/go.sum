@@ -2,8 +2,11 @@ cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMT
 github.com/BayviewComputerClub/smoothie-runner v0.0.0-20191003002355-8178b1b20a40 h1:VPhKMsrO2OcuEBK/pSVqr2BNU1r8vO9NYTTb9lPwyXw=
 github.com/BayviewComputerClub/smoothie-runner v0.0.0-20191003011658-bb13a94bc451 h1:i43SB3pYqwRbTGwwCNIRj+K5nN6UTBWbZZ6iYzfAdjY=
 github.com/BayviewComputerClub/smoothie-runner v0.0.0-20191003012456-f67162a9fbc3 h1:Wk2XFtoLWfuSqYf2stQywQkXgMZ3nMwMpBnGC54E5H8=
+github.com/BayviewComputerClub/smoothie-runner v0.0.0-20191003014411-2beccbe92862 h1:BS3M01tN+rLOrfMEeJv1+rcAXn2vYBZTmAgbRh0rjII=
 github.com/BayviewComputerClub/smoothie-runner/protocol v0.0.0-20191003012456-f67162a9fbc3 h1:Hs3k0MKcuEisK8OQm+NAGkHeJCco1+DGxzcD2T0BFiY=
 github.com/BayviewComputerClub/smoothie-runner/protocol v0.0.0-20191003012456-f67162a9fbc3/go.mod h1:u6A8DCin+UPEYd65B/BseYTMjoZ3RFZmVMIR70tGfMI=
+github.com/BayviewComputerClub/smoothie-runner/protocol v0.0.0-20191003014411-2beccbe92862 h1:4hjVP8jb2Gbh6Ia281p15VW/NtH8D1r90njkxRkNP8g=
+github.com/BayviewComputerClub/smoothie-runner/protocol v0.0.0-20191003014411-2beccbe92862/go.mod h1:u6A8DCin+UPEYd65B/BseYTMjoZ3RFZmVMIR70tGfMI=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b/go.mod h1:SBH7ygxi8pfUlaOkMMuAQtPIUF8ecWP5IEl/CR7VP2Q=

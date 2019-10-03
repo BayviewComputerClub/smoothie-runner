@@ -40,11 +40,11 @@ func init() {
 }
 
 func info(output string) {
-	log.Println(time.Now().Format("2006-01-02 15:04:05") + " [INFO] " + output)
+	println(time.Now().Format("2006-01-02 15:04:05") + " [INFO] " + output)
 }
 
 func warn(output string) {
-	log.Println(time.Now().Format("2006-01-02 15:04:05") + " [WARN] " + output)
+	println(time.Now().Format("2006-01-02 15:04:05") + " [WARN] " + output)
 }
 
 func fatal(output string) {

@@ -1,5 +1,6 @@
 #!/bin/bash
 
+./protocol/generate.sh
 cd main
 go build ./...
-mv ./smoothie-runner ../
+mv ./main ../smoothie-runner

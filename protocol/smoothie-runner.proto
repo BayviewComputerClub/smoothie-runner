@@ -29,7 +29,7 @@ message ProblemBatch {
 }
 
 message ProblemBatchCase {
-    string correctAnswer = 1;
+    string expectedAnswer = 1;
     double timeLimit = 2;
     double memLimit = 3;
 }
