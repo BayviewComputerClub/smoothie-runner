@@ -3,12 +3,11 @@ package main
 import (
 	"bufio"
 	pb "github.com/BayviewComputerClub/smoothie-runner/protocol"
-	"golang.org/x/sys/unix"
 	"io"
 	"io/ioutil"
-	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 const (
@@ -166,6 +165,8 @@ func judgeStdinFeeder(writer *io.WriteCloser, done chan CaseReturn, feed *string
 func judgeCase(c *exec.Cmd, batchCase *pb.ProblemBatchCase) *pb.TestCaseResult {
 	done := make(chan CaseReturn)
 
+	t := time.Now()
+
 	// initialize pipes
 	stderrPipe, err := c.StderrPipe()
 	if err != nil {
@@ -203,43 +204,11 @@ func judgeCase(c *exec.Cmd, batchCase *pb.ProblemBatchCase) *pb.TestCaseResult {
 
 	// wait for judging to finish
 	response := <-done
-
-
-}
-
-func sandboxProcess(pid int, done chan CaseReturn) {
-	for {
-		err := unix.PtraceSyscall(pid, 0)
-
-		// help: https://github.com/golang/sys/blob/master/unix/syscall_linux.go#L299
-		dude := unix.WaitStatus(0)
-		rusage := unix.Rusage{}
-		_, err = unix.Wait4(pid, &dude, 0, &rusage)
-		if err != nil {
-			warn(err.Error())
-			done <- CaseReturn{Result: OUTCOME_RTE}
-			return
-		}
-
-		pregs := unix.PtraceRegs{}
-		err = unix.PtraceGetRegs(pid, &pregs)
-		if err != nil {
-			warn(err.Error())
-			done <- CaseReturn{Result: OUTCOME_RTE}
-			return
-		}
-
-		// https://filippo.io/linux-syscall-table/
-		switch pregs.Orig_rax {
-
-		}
-
-		err = unix.Kill(pid, 9)
-		if err != nil {
-			warn(err.Error())
-			done <- CaseReturn{Result: OUTCOME_ILL}
-			return
-		}
-		done <- CaseReturn{Result: OUTCOME_ILL}
+	return &pb.TestCaseResult{
+		Result:      response.Result,
+		ResultInfo:  response.ResultInfo,
+		Time:        time.Since(t).Seconds(),
+		MemUsage:    0, // TODO
 	}
 }
+
