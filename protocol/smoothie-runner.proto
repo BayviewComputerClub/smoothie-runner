@@ -20,8 +20,8 @@ message Solution {
 
 message Problem {
     repeated ProblemBatch testBatches = 1;
-    int64 problemID = 2;
-    int64 testCasesHashCode = 3; // hash of testBatches, to update cache if need be
+    uint64 problemID = 2;
+    uint64 testCasesHashCode = 3; // hash of testBatches, to update cache if need be
 }
 
 message ProblemBatch {
@@ -29,9 +29,10 @@ message ProblemBatch {
 }
 
 message ProblemBatchCase {
-    string expectedAnswer = 1;
-    double timeLimit = 2;
-    double memLimit = 3;
+    string input = 1;
+    string expectedAnswer = 2;
+    double timeLimit = 3;
+    double memLimit = 4;
 }
 
 // server test responses
@@ -43,8 +44,8 @@ message TestSolutionResponse {
 }
 
 message TestCaseResult {
-    int64 batchNumber = 1;
-    int64 caseNumber = 2;
+    uint64 batchNumber = 1;
+    uint64 caseNumber = 2;
     string result = 3; // WA, AC, etc...
     string resultInfo = 4; // runtime error
     double time = 5;

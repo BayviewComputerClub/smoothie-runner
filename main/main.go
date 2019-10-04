@@ -15,7 +15,7 @@ const (
 
 var (
 	PORT int
-
+	MAX_CORES int
 )
 
 func getEnv(key string, def string) string {
