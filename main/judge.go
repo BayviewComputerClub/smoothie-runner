@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	pb "github.com/BayviewComputerClub/smoothie-runner/protocol"
+	"golang.org/x/sys/unix"
 	"io"
 	"io/ioutil"
 	"os"
@@ -17,6 +18,7 @@ const (
 	OUTCOME_CE  = "CE"  // compile error
 	OUTCOME_TLE = "TLE" // time limit exceeded
 	OUTCOME_MLE = "MLE" // memory limit exceeded
+	OUTCOME_ILL = "ILL" // illegal operation
 )
 
 type CaseReturn struct {
@@ -161,8 +163,7 @@ func judgeStdinFeeder(writer *io.WriteCloser, done chan CaseReturn, feed *string
 	}
 }
 
-func judgeCase(compiledProgram os.File, batchCase *pb.ProblemBatchCase) *pb.TestCaseResult {
-	c := exec.Command("./" + compiledProgram.Name())
+func judgeCase(c *exec.Cmd, batchCase *pb.ProblemBatchCase) *pb.TestCaseResult {
 	done := make(chan CaseReturn)
 
 	// initialize pipes
@@ -193,6 +194,10 @@ func judgeCase(compiledProgram os.File, batchCase *pb.ProblemBatchCase) *pb.Test
 		return nil
 	}
 
+	// start sandboxing
+	pid := c.Process.Pid
+	go sandboxProcess(pid, done)
+
 	// feed input to process
 	go judgeStdinFeeder(&stdinPipe, done, &batchCase.Input)
 
@@ -200,4 +205,41 @@ func judgeCase(compiledProgram os.File, batchCase *pb.ProblemBatchCase) *pb.Test
 	response := <-done
 
 
+}
+
+func sandboxProcess(pid int, done chan CaseReturn) {
+	for {
+		err := unix.PtraceSyscall(pid, 0)
+
+		// help: https://github.com/golang/sys/blob/master/unix/syscall_linux.go#L299
+		dude := unix.WaitStatus(0)
+		rusage := unix.Rusage{}
+		_, err = unix.Wait4(pid, &dude, 0, &rusage)
+		if err != nil {
+			warn(err.Error())
+			done <- CaseReturn{Result: OUTCOME_RTE}
+			return
+		}
+
+		pregs := unix.PtraceRegs{}
+		err = unix.PtraceGetRegs(pid, &pregs)
+		if err != nil {
+			warn(err.Error())
+			done <- CaseReturn{Result: OUTCOME_RTE}
+			return
+		}
+
+		// https://filippo.io/linux-syscall-table/
+		switch pregs.Orig_rax {
+
+		}
+
+		err = unix.Kill(pid, 9)
+		if err != nil {
+			warn(err.Error())
+			done <- CaseReturn{Result: OUTCOME_ILL}
+			return
+		}
+		done <- CaseReturn{Result: OUTCOME_ILL}
+	}
 }
