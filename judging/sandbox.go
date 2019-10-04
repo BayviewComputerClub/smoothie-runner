@@ -1,6 +1,8 @@
 package judging
 
 import (
+	"github.com/BayviewComputerClub/smoothie-runner/shared"
+	"github.com/BayviewComputerClub/smoothie-runner/util"
 	"golang.org/x/sys/unix"
 	"runtime"
 	"syscall"
@@ -26,14 +28,14 @@ func sandboxWait4(pgid int, done chan CaseReturn) {
 	var ws unix.WaitStatus
 	wpid, err := unix.Wait4(-1*pgid, &ws, syscall.WALL, nil)
 	if err != nil {
-		warn(err.Error())
-		done <- CaseReturn{Result: OUTCOME_RTE}
+		util.Warn(err.Error())
+		done <- CaseReturn{Result: shared.OUTCOME_RTE}
 		return
 	}
 
 	if wpid == -1 {
-		warn("wpid = -1")
-		done <- CaseReturn{Result: OUTCOME_RTE}
+		util.Warn("wpid = -1")
+		done <- CaseReturn{Result: shared.OUTCOME_RTE}
 		return
 	}
 
@@ -51,8 +53,8 @@ func sandboxProcess(pid int, done chan CaseReturn) {
 	for { // scan through each syscall
 		err := unix.PtraceSyscall(pid, 0)
 		if err != nil {
-			warn(err.Error())
-			done <- CaseReturn{Result: OUTCOME_RTE}
+			util.Warn(err.Error())
+			done <- CaseReturn{Result: shared.OUTCOME_RTE}
 			return
 		}
 
@@ -62,8 +64,8 @@ func sandboxProcess(pid int, done chan CaseReturn) {
 		pregs := unix.PtraceRegs{}
 		err = unix.PtraceGetRegs(pid, &pregs)
 		if err != nil {
-			warn(err.Error())
-			done <- CaseReturn{Result: OUTCOME_RTE}
+			util.Warn(err.Error())
+			done <- CaseReturn{Result: shared.OUTCOME_RTE}
 			return
 		}
 
@@ -77,8 +79,8 @@ func sandboxProcess(pid int, done chan CaseReturn) {
 		// run system call
 		err = unix.PtraceSyscall(pid, 0)
 		if err != nil {
-			warn(err.Error())
-			done <- CaseReturn{Result: OUTCOME_RTE}
+			util.Warn(err.Error())
+			done <- CaseReturn{Result: shared.OUTCOME_RTE}
 			return
 		}
 

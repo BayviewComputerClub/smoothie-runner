@@ -1,0 +1,4 @@
+github.com/BayviewComputerClub/smoothie-runner/shared v0.0.0-20191004202709-1157dafa8c4c h1:aGseLbZlLfmhvfH5G0kyE3IDeNa8xIFWYjCcW/Uz/jY=
+github.com/BayviewComputerClub/smoothie-runner/shared v0.0.0-20191004202709-1157dafa8c4c/go.mod h1:ydI8A/QnUTfQcsQTg8rA5b91dlf5bcqNJY77kC8yFB8=
+golang.org/x/sys v0.0.0-20191003212358-c178f38b412c h1:6Zx7DRlKXf79yfxuQ/7GqV3w2y7aDsk6bGg0MzF5RVU=
+golang.org/x/sys v0.0.0-20191003212358-c178f38b412c/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
