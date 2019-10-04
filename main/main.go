@@ -36,7 +36,7 @@ func init() {
 }
 
 func main() {
-	log.Println("Starting smoothie-runner...")
+	log.Printf("Starting smoothie-runner%s...", VERSION)
 
 	sigs := make(chan os.Signal, 1)
 	done := make(chan bool, 1)

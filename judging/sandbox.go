@@ -4,6 +4,7 @@ import (
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
 	"github.com/BayviewComputerClub/smoothie-runner/util"
 	"golang.org/x/sys/unix"
+	"math"
 	"runtime"
 	"syscall"
 )
@@ -72,7 +73,7 @@ func sandboxProcess(pid int, done chan CaseReturn) {
 		blocked := false
 		// map syscall to nothing if syscall is blocked
 		if blocked = isBlockedSyscall(pregs.Orig_rax); blocked {
-			pregs.Orig_rax = -1
+			pregs.Orig_rax = uint64(math.Inf(0)) // TODO
 			err = unix.PtraceSetRegs(pid, &pregs)
 		}
 
@@ -87,7 +88,7 @@ func sandboxProcess(pid int, done chan CaseReturn) {
 		sandboxWait4(pid, done)
 
 		if blocked {
-			pregs.Rax = -0x1
+			pregs.Rax = uint64(math.Inf(0)) // TODO
 		}
 	}
 }

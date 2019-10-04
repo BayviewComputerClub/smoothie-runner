@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/BayviewComputerClub/smoothie-runner/judging"
 	pb "github.com/BayviewComputerClub/smoothie-runner/protocol"
+	"github.com/BayviewComputerClub/smoothie-runner/shared"
 	"github.com/BayviewComputerClub/smoothie-runner/util"
 	"google.golang.org/grpc"
 	"io"
@@ -28,27 +29,31 @@ func (runner *SmoothieRunnerAPI) TestSolution(stream pb.SmoothieRunnerAPI_TestSo
 		return err
 	}
 
+	stat := make(chan shared.JudgeStatus)
+
 	// start judging
-	go judging.TestSolution(req, &stream)
+	go judging.TestSolution(req, stream, stat)
 
-	for { // listen for further requests
-		_, err := stream.Recv()
-		if err == io.EOF {
-			return nil
+	for { // listen for further requests and status simultaneously
+		select {
+		case s := <-stat: // if status update
+
+		default: // if no status update, read from stream
+			_, err := stream.Recv()
+			if err == io.EOF {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
 		}
-		if err != nil {
-			return err
-		}
-
-
-
 	}
 }
 
 // rpc server start
 
 func startApiServer() {
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", PORT))
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", shared.PORT))
 	if err != nil {
 		util.Fatal("IPC listen error (check if port has been taken):" + err.Error())
 	}
@@ -56,6 +61,6 @@ func startApiServer() {
 	smoothieRunner = grpc.NewServer()
 
 	pb.RegisterSmoothieRunnerAPIServer(smoothieRunner, &SmoothieRunnerAPI{})
-	util.Info("Started API on port " + strconv.Itoa(PORT))
+	util.Info("Started API on port " + strconv.Itoa(shared.PORT))
 	go smoothieRunner.Serve(lis)
 }

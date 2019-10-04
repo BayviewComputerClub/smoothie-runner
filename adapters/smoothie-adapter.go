@@ -7,7 +7,7 @@ import (
 
 type SmoothieAdapter interface {
 	GetName() string
-	Compile(string) (exec.Cmd, error)
+	Compile(string) (*exec.Cmd, error)
 }
 
 var (
@@ -20,9 +20,9 @@ func init() {
 	adapters["java11"] = Java11Adapter{}
 }
 
-func CompileAndGetRunCommand(language string, code string) (exec.Cmd, error) {
+func CompileAndGetRunCommand(language string, code string) (*exec.Cmd, error) {
 	if adapters[language] == nil {
-		return "", errors.New("language not supported")
+		return nil, errors.New("language not supported")
 	}
 
 	return adapters[language].Compile(code)

@@ -8,6 +8,6 @@ func (adapter Cpp11Adapter) GetName() string {
 	return "c++11"
 }
 
-func (adapter Cpp11Adapter) Compile(code string) (exec.Cmd, error) {
-
+func (adapter Cpp11Adapter) Compile(code string) (*exec.Cmd, error) {
+	return nil, nil
 }
