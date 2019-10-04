@@ -8,3 +8,7 @@ require (
 )
 
 replace github.com/BayviewComputerClub/smoothie-runner/protocol => ../protocol
+
+replace github.com/BayviewComputerClub/smoothie-runner/judging => ../judging
+
+replace github.com/BayviewComputerClub/smoothie-runner/util => ../util

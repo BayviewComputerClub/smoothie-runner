@@ -1,4 +1,4 @@
-package main
+package judging
 
 import (
 	"golang.org/x/sys/unix"
@@ -46,6 +46,7 @@ func sandboxWait4(pgid int, done chan CaseReturn) {
 
 func sandboxProcess(pid int, done chan CaseReturn) {
 	runtime.LockOSThread() // https://github.com/golang/go/issues/7699
+	defer runtime.LockOSThread()
 
 	for { // scan through each syscall
 		err := unix.PtraceSyscall(pid, 0)

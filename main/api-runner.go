@@ -18,17 +18,34 @@ var (
 type SmoothieRunnerAPI struct{}
 
 func (runner *SmoothieRunnerAPI) TestSolution(stream pb.SmoothieRunnerAPI_TestSolutionServer) error {
-	for {
+	req, err := stream.Recv()
+	if err == io.EOF {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	// start judging
+	go testSolution(req, &stream)
+
+	for { // listen for further requests
 		_, err := stream.Recv()
 		if err == io.EOF {
 			return nil
 		}
 		if err != nil {
+
 			return err
 		}
 
 
+
 	}
+}
+
+func testSolution(req *pb.TestSolutionRequest, stream *pb.SmoothieRunnerAPI_TestSolutionServer) {
+
 }
 
 // rpc server start

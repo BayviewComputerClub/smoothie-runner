@@ -1,4 +1,4 @@
-package main
+package judging
 
 import (
 	"bufio"
@@ -18,6 +18,7 @@ const (
 	OUTCOME_TLE = "TLE" // time limit exceeded
 	OUTCOME_MLE = "MLE" // memory limit exceeded
 	OUTCOME_ILL = "ILL" // illegal operation
+	OUTCOME_ISE = "ISE" // internal server error
 )
 
 type CaseReturn struct {
@@ -33,10 +34,9 @@ type CaseReturn struct {
  * use ptrace unix calls
  * can use syscall credentials
  * make sure thread is locked
- * set timeout
  */
 
-func judgeStdoutListener(reader *io.ReadCloser, done chan CaseReturn, expectedAnswer *string) {
+func judgeStdoutListener(cmd *exec.Cmd, reader *io.ReadCloser, done chan CaseReturn, expectedAnswer *string) {
 	buff := bufio.NewReader(*reader)
 
 	expectedScanner := bufio.NewScanner(strings.NewReader(*expectedAnswer))
@@ -57,6 +57,12 @@ func judgeStdoutListener(reader *io.ReadCloser, done chan CaseReturn, expectedAn
 
 	// loop through to read rune by rune
 	for {
+		if cmd.ProcessState.Exited() {
+			done <- CaseReturn{
+				Result: OUTCOME_WA,
+			}
+			break
+		}
 
 		// read rune to parse
 		c, _, err := buff.ReadRune()
@@ -144,7 +150,7 @@ func judgeStderrListener(reader *io.ReadCloser, done chan CaseReturn) {
 		warn("Stderr: " + err.Error()) // TODO
 	} else {
 		done <- CaseReturn{
-			Result: OUTCOME_RTE,
+			Result:     OUTCOME_RTE,
 			ResultInfo: string(str),
 		}
 	}
@@ -162,7 +168,14 @@ func judgeStdinFeeder(writer *io.WriteCloser, done chan CaseReturn, feed *string
 	}
 }
 
-func judgeCase(c *exec.Cmd, batchCase *pb.ProblemBatchCase) *pb.TestCaseResult {
+func judgeCheckTimeout(c *exec.Cmd, d time.Duration, done chan CaseReturn) {
+	time.Sleep(d)
+	if !c.ProcessState.Exited() {
+		done <- CaseReturn {Result: OUTCOME_TLE}
+	}
+}
+
+func judgeCase(c *exec.Cmd, batchCase *pb.ProblemBatchCase, result chan pb.TestCaseResult) {
 	done := make(chan CaseReturn)
 
 	t := time.Now()
@@ -171,44 +184,58 @@ func judgeCase(c *exec.Cmd, batchCase *pb.ProblemBatchCase) *pb.TestCaseResult {
 	stderrPipe, err := c.StderrPipe()
 	if err != nil {
 		warn(err.Error())
-		return nil
+		result <- pb.TestCaseResult{Result: OUTCOME_ISE,}
+		return
 	}
 	stdoutPipe, err := c.StdoutPipe()
 	if err != nil {
 		warn(err.Error())
-		return nil
+		result <- pb.TestCaseResult{Result: OUTCOME_ISE,}
+		return
 	}
 	stdinPipe, err := c.StdinPipe()
 	if err != nil {
 		warn(err.Error())
-		return nil
+		result <- pb.TestCaseResult{Result: OUTCOME_ISE,}
+		return
 	}
 
 	// start listener pipes
-	go judgeStdoutListener(&stdoutPipe, done, &batchCase.ExpectedAnswer)
+	go judgeStdoutListener(c, &stdoutPipe, done, &batchCase.ExpectedAnswer)
 	go judgeStderrListener(&stderrPipe, done)
 
 	// start process
 	err = c.Start()
 	if err != nil {
 		warn(err.Error())
-		return nil
+		result <- pb.TestCaseResult{Result: OUTCOME_ISE,}
+		return
 	}
+
+	// start time watch (convert to seconds)
+	go judgeCheckTimeout(c, time.Duration(batchCase.TimeLimit*1000000000) * time.Second, done)
 
 	// start sandboxing
 	pid := c.Process.Pid
-	go sandboxProcess(pid, done)
+	go sandboxProcess(pid, done) // this will reserve a thread
 
 	// feed input to process
 	go judgeStdinFeeder(&stdinPipe, done, &batchCase.Input)
 
 	// wait for judging to finish
 	response := <-done
-	return &pb.TestCaseResult{
-		Result:      response.Result,
-		ResultInfo:  response.ResultInfo,
-		Time:        time.Since(t).Seconds(),
-		MemUsage:    0, // TODO
+
+	if !c.ProcessState.Exited() {
+		err = c.Process.Kill()
+		if err != nil {
+			warn(err.Error())
+		}
+	}
+
+	result <- pb.TestCaseResult{
+		Result:     response.Result,
+		ResultInfo: response.ResultInfo,
+		Time:       time.Since(t).Seconds(),
+		MemUsage:   0, // TODO
 	}
 }
-
