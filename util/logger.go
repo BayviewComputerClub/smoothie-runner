@@ -5,14 +5,14 @@ import (
 	"time"
 )
 
-func info(output string) {
+func Info(output string) {
 	println(time.Now().Format("2006-01-02 15:04:05") + " [INFO] " + output)
 }
 
-func warn(output string) {
+func Warn(output string) {
 	println(time.Now().Format("2006-01-02 15:04:05") + " [WARN] " + output)
 }
 
-func fatal(output string) {
+func Fatal(output string) {
 	log.Fatal(output)
 }

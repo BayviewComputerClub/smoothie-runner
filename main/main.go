@@ -1,21 +1,17 @@
 package main
 
 import (
+	"github.com/BayviewComputerClub/smoothie-runner/shared"
+	"github.com/BayviewComputerClub/smoothie-runner/util"
 	"log"
 	"os"
 	"os/signal"
 	"strconv"
 	"syscall"
-	"time"
 )
 
 const (
 	VERSION = "v1.0.0"
-)
-
-var (
-	PORT int
-	MAX_CORES int
 )
 
 func getEnv(key string, def string) string {
@@ -33,7 +29,7 @@ func init() {
 
 	// environment variables
 	var err error
-	PORT, err = strconv.Atoi(getEnv("PORT", "6821"))
+	shared.PORT, err = strconv.Atoi(getEnv("PORT", "6821"))
 	if err != nil {
 		panic(err)
 	}
@@ -47,7 +43,7 @@ func main() {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		sig := <-sigs
-		info("Received host " + sig.String())
+		util.Info("Received host " + sig.String())
 		done <- true
 	}()
 
@@ -59,6 +55,6 @@ func main() {
 }
 
 func shutdown() {
-	info("Shutting down smoothie-runner...")
+	util.Info("Shutting down smoothie-runner...")
 	os.Exit(0)
 }

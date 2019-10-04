@@ -3,6 +3,7 @@ package judging
 import (
 	"bufio"
 	pb "github.com/BayviewComputerClub/smoothie-runner/protocol"
+	"github.com/BayviewComputerClub/smoothie-runner/util"
 	"io"
 	"io/ioutil"
 	"os/exec"
@@ -147,7 +148,7 @@ func judgeStderrListener(reader *io.ReadCloser, done chan CaseReturn) {
 	str, err := ioutil.ReadAll(*reader)
 
 	if err != nil { // should terminate peacefully
-		warn("Stderr: " + err.Error()) // TODO
+		util.Warn("Stderr: " + err.Error()) // TODO
 	} else {
 		done <- CaseReturn{
 			Result:     OUTCOME_RTE,
@@ -163,7 +164,7 @@ func judgeStdinFeeder(writer *io.WriteCloser, done chan CaseReturn, feed *string
 		done <- CaseReturn{
 			Result: OUTCOME_RTE,
 		}
-		warn("Stdin: " + err.Error()) // TODO
+		util.Warn("Stdin: " + err.Error()) // TODO
 		return
 	}
 }
@@ -183,19 +184,19 @@ func judgeCase(c *exec.Cmd, batchCase *pb.ProblemBatchCase, result chan pb.TestC
 	// initialize pipes
 	stderrPipe, err := c.StderrPipe()
 	if err != nil {
-		warn(err.Error())
+		util.Warn(err.Error())
 		result <- pb.TestCaseResult{Result: OUTCOME_ISE,}
 		return
 	}
 	stdoutPipe, err := c.StdoutPipe()
 	if err != nil {
-		warn(err.Error())
+		util.Warn(err.Error())
 		result <- pb.TestCaseResult{Result: OUTCOME_ISE,}
 		return
 	}
 	stdinPipe, err := c.StdinPipe()
 	if err != nil {
-		warn(err.Error())
+		util.Warn(err.Error())
 		result <- pb.TestCaseResult{Result: OUTCOME_ISE,}
 		return
 	}
@@ -207,7 +208,7 @@ func judgeCase(c *exec.Cmd, batchCase *pb.ProblemBatchCase, result chan pb.TestC
 	// start process
 	err = c.Start()
 	if err != nil {
-		warn(err.Error())
+		util.Warn(err.Error())
 		result <- pb.TestCaseResult{Result: OUTCOME_ISE,}
 		return
 	}
@@ -228,7 +229,7 @@ func judgeCase(c *exec.Cmd, batchCase *pb.ProblemBatchCase, result chan pb.TestC
 	if !c.ProcessState.Exited() {
 		err = c.Process.Kill()
 		if err != nil {
-			warn(err.Error())
+			util.Warn(err.Error())
 		}
 	}
 
