@@ -2,6 +2,7 @@ package shared
 
 import "golang.org/x/sys/unix"
 
+// https://filippo.io/linux-syscall-table/
 var ALLOWED_CALLS = []uint64{
 	unix.SYS_READ,
 	unix.SYS_WRITE,
@@ -11,6 +12,7 @@ var ALLOWED_CALLS = []uint64{
 	unix.SYS_FSTAT,
 	unix.SYS_STATFS,
 	unix.SYS_CLOSE,
+	unix.SYS_LSEEK,
 
 	unix.SYS_RT_SIGRETURN,
 	unix.SYS_OPENAT,
