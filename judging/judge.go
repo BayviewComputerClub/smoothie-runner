@@ -67,20 +67,20 @@ func judgeCase(c *exec.Cmd, batchCase *pb.ProblemBatchCase, result chan pb.TestC
 	// initialize pipes
 	stderrPipe, err := c.StderrPipe()
 	if err != nil {
-		util.Warn(err.Error())
-		result <- pb.TestCaseResult{Result: shared.OUTCOME_ISE,}
+		util.Warn("stderrpipeinit: " + err.Error())
+		result <- pb.TestCaseResult{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
 		return
 	}
 	stdoutPipe, err := c.StdoutPipe()
 	if err != nil {
-		util.Warn(err.Error())
-		result <- pb.TestCaseResult{Result: shared.OUTCOME_ISE,}
+		util.Warn("stdoutpipeinit: " + err.Error())
+		result <- pb.TestCaseResult{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
 		return
 	}
 	stdinPipe, err := c.StdinPipe()
 	if err != nil {
-		util.Warn(err.Error())
-		result <- pb.TestCaseResult{Result: shared.OUTCOME_ISE,}
+		util.Warn("stdinpipeinit: " + err.Error())
+		result <- pb.TestCaseResult{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
 		return
 	}
 
@@ -91,8 +91,8 @@ func judgeCase(c *exec.Cmd, batchCase *pb.ProblemBatchCase, result chan pb.TestC
 	// start process
 	err = c.Start()
 	if err != nil {
-		util.Warn(err.Error())
-		result <- pb.TestCaseResult{Result: shared.OUTCOME_ISE,}
+		util.Warn("RTE: " + err.Error())
+		result <- pb.TestCaseResult{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
 		return
 	}
 
@@ -109,10 +109,10 @@ func judgeCase(c *exec.Cmd, batchCase *pb.ProblemBatchCase, result chan pb.TestC
 	// wait for judging to finish
 	response := <-done
 
-	if !c.ProcessState.Exited() {
+	if c.ProcessState != nil && !c.ProcessState.Exited() {
 		err = c.Process.Kill()
 		if err != nil {
-			util.Warn(err.Error())
+			util.Warn("pkill fail: " + err.Error())
 		}
 	}
 

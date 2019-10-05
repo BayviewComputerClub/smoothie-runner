@@ -23,7 +23,7 @@ func (adapter Cpp11Adapter) Compile(code string) (*exec.Cmd, error) {
 		return nil, err
 	}
 
-	c := exec.Command("g++", "-std=c++11", shared.TESTING_DIR + "/" + curTime + ".cpp", "-o " + curTime)
+	c := exec.Command("g++", "-std=c++11", shared.TESTING_DIR + "/" + curTime + ".cpp", "-o", curTime)
 	err = c.Run()
 	if err != nil {
 		return nil, err

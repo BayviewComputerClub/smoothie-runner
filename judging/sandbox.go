@@ -29,14 +29,14 @@ func sandboxWait4(pgid int, done chan CaseReturn) {
 	var ws unix.WaitStatus
 	wpid, err := unix.Wait4(-1*pgid, &ws, syscall.WALL, nil)
 	if err != nil {
-		util.Warn(err.Error())
-		done <- CaseReturn{Result: shared.OUTCOME_RTE}
+		util.Warn("wait4: " + err.Error())
+		done <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
 		return
 	}
 
 	if wpid == -1 {
 		util.Warn("wpid = -1")
-		done <- CaseReturn{Result: shared.OUTCOME_RTE}
+		done <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: "wpid = -1"}
 		return
 	}
 
@@ -51,11 +51,20 @@ func sandboxProcess(pid int, done chan CaseReturn) {
 	runtime.LockOSThread() // https://github.com/golang/go/issues/7699
 	defer runtime.LockOSThread()
 
+	//log.Printf("%d\n", pid) // TODO
+
+	err := syscall.PtraceSetOptions(pid, syscall.PTRACE_O_TRACESYSGOOD)
+	if err != nil {
+		util.Warn("ptracesetoptions: " + err.Error())
+		done <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
+		return
+	}
+
 	for { // scan through each syscall
-		err := unix.PtraceSyscall(pid, 0)
+		err := syscall.PtraceSyscall(pid, 0)
 		if err != nil {
-			util.Warn(err.Error())
-			done <- CaseReturn{Result: shared.OUTCOME_RTE}
+			util.Warn("ptracesyscall: " + err.Error())
+			done <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
 			return
 		}
 
@@ -65,8 +74,8 @@ func sandboxProcess(pid int, done chan CaseReturn) {
 		pregs := unix.PtraceRegs{}
 		err = unix.PtraceGetRegs(pid, &pregs)
 		if err != nil {
-			util.Warn(err.Error())
-			done <- CaseReturn{Result: shared.OUTCOME_RTE}
+			util.Warn("ptracegetregs: " + err.Error())
+			done <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
 			return
 		}
 
@@ -80,8 +89,8 @@ func sandboxProcess(pid int, done chan CaseReturn) {
 		// run system call
 		err = unix.PtraceSyscall(pid, 0)
 		if err != nil {
-			util.Warn(err.Error())
-			done <- CaseReturn{Result: shared.OUTCOME_RTE}
+			util.Warn("ptracesyscall: " + err.Error())
+			done <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
 			return
 		}
 

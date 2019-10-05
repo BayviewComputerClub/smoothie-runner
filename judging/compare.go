@@ -30,7 +30,7 @@ func judgeStdoutListener(cmd *exec.Cmd, reader *io.ReadCloser, done chan CaseRet
 
 	// loop through to read rune by rune
 	for {
-		if cmd.ProcessState.Exited() {
+		if cmd.ProcessState != nil && cmd.ProcessState.Exited() {
 			done <- CaseReturn{
 				Result: shared.OUTCOME_WA,
 			}

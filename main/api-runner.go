@@ -49,12 +49,12 @@ func (runner *SmoothieRunnerAPI) TestSolution(stream pb.SmoothieRunnerAPI_TestSo
 			}
 			d, err := stream.Recv()
 			if err == io.EOF {
-				streamReceive <- nil
+				streamReceive <- pb.TestSolutionRequest{CancelTesting: false,}
 				break
 			}
 			if err != nil {
 				util.Warn("stream: " + err.Error())
-				streamReceive <- nil
+				streamReceive <- pb.TestSolutionRequest{CancelTesting: false,}
 				break
 			}
 
