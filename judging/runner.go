@@ -8,6 +8,17 @@ import (
 
 // TODO cleanup files at end
 
+func emptyTcr() *pb.TestCaseResult {
+	return &pb.TestCaseResult{
+		BatchNumber: 0,
+		CaseNumber:  0,
+		Result:      "",
+		ResultInfo:  "",
+		Time:        0,
+		MemUsage:    0,
+	}
+}
+
 func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, cancelled *bool) {
 
 	// attempt to compile user submitted code
@@ -18,14 +29,7 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 		res <- shared.JudgeStatus{
 			Err: err,
 			Res: pb.TestSolutionResponse{
-				TestCaseResult:   &pb.TestCaseResult{
-					BatchNumber: 0,
-					CaseNumber:  0,
-					Result:      "",
-					ResultInfo:  "",
-					Time:        0,
-					MemUsage:    0,
-				},
+				TestCaseResult: emptyTcr(),
 				CompletedTesting: true,
 				CompileError:     shared.OUTCOME_CE + ": " + err.Error(),
 			},
@@ -68,14 +72,7 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 	res <- shared.JudgeStatus{
 		Err: nil,
 		Res: pb.TestSolutionResponse{
-			TestCaseResult:   &pb.TestCaseResult{
-				BatchNumber: 0,
-				CaseNumber:  0,
-				Result:      "",
-				ResultInfo:  "",
-				Time:        0,
-				MemUsage:    0,
-			},
+			TestCaseResult: emptyTcr(),
 			CompletedTesting: true,
 			CompileError:     "",
 		},

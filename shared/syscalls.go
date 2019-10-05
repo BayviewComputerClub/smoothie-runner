@@ -2,7 +2,12 @@ package shared
 
 import "golang.org/x/sys/unix"
 
+<<<<<<< Updated upstream
 // https://filippo.io/linux-syscall-table/
+=======
+// "inspired" by DMOJ allowed syscalls hehe
+
+>>>>>>> Stashed changes
 var ALLOWED_CALLS = []uint64{
 	unix.SYS_READ,
 	unix.SYS_WRITE,
