@@ -1,7 +1,6 @@
 package judging
 
 import (
-	"fmt"
 	pb "github.com/BayviewComputerClub/smoothie-runner/protocol"
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
 	"github.com/BayviewComputerClub/smoothie-runner/util"
@@ -44,7 +43,7 @@ func judgeStderrListener(reader *io.ReadCloser, done chan CaseReturn) {
 }
 
 func judgeStdinFeeder(writer *os.File, done chan CaseReturn, feed *string) {
-	println(*feed)
+	//println(*feed)
 	_, err := writer.WriteString(*feed)
 	if err != nil {
 		done <- CaseReturn{
@@ -123,7 +122,7 @@ func judgeCase(c *exec.Cmd, batchCase *pb.ProblemBatchCase, result chan pb.TestC
 		// wait for judging to finish
 		response := <-done
 
-		fmt.Println(response.Result + " " + response.ResultInfo) // TODO
+		//fmt.Println(response.Result + " " + response.ResultInfo) // TODO
 
 		if util.IsPidRunning(c.Process.Pid) {
 			err = c.Process.Kill()

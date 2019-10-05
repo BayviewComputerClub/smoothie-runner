@@ -4,21 +4,15 @@ import (
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
 	"github.com/BayviewComputerClub/smoothie-runner/util"
 	"golang.org/x/sys/unix"
-	"log"
 	"math"
-	"syscall"
 )
 
 // could possibly switch to seccomp instead of ptrace
 
 // https://filippo.io/linux-syscall-table/
 func isBlockedSyscall(call uint64) bool {
-	//return false
-	//allowedCalls := [4]uint64{4, 20, 231, 60}
-	allowedCalls := [4]uint64{unix.SYS_READ, unix.SYS_WRITE, unix.SYS_EXIT, unix.SYS_RT_SIGRETURN}
-
 	found := false
-	for _, a := range allowedCalls {
+	for _, a := range shared.ALLOWED_CALLS {
 		if a == call {
 			found = true
 		}
@@ -29,7 +23,7 @@ func isBlockedSyscall(call uint64) bool {
 func sandboxWait4(pgid int, done chan CaseReturn) bool {
 	// initialize and get status
 	var ws unix.WaitStatus
-	wpid, err := unix.Wait4(-1*pgid, &ws, syscall.WALL, nil)
+	wpid, err := unix.Wait4(-1*pgid, &ws, unix.WALL, nil)
 	if err != nil {
 		util.Warn("wait4: " + err.Error())
 		done <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
@@ -59,8 +53,6 @@ func sandboxProcess(pid *int, done chan CaseReturn) {
 		return
 	}
 
-	log.Printf("%d %d\n", *pid, pgid) // TODO
-
 	err = unix.PtraceSetOptions(*pid, unix.PTRACE_O_EXITKILL)
 	if err != nil {
 		util.Warn("ptracesetoptions: " + err.Error())
@@ -68,9 +60,7 @@ func sandboxProcess(pid *int, done chan CaseReturn) {
 		return
 	}
 
-	//defer println("I LEFT") // TODO
 	for { // scan through each syscall
-		//println("WTFU") // TODO
 		err := unix.PtraceSyscall(*pid, 0)
 		if err != nil {
 			util.Warn("ptracesyscall1: " + err.Error())
@@ -91,11 +81,13 @@ func sandboxProcess(pid *int, done chan CaseReturn) {
 			return
 		}
 
-		blocked := false
-		// map syscall to nothing if syscall is blocked
-		//println(strconv.Itoa(int(pregs.Orig_rax)) + " " + strconv.Itoa(*pid)) // TODO
-		if blocked = isBlockedSyscall(pregs.Orig_rax); blocked {
-			pregs.Orig_rax = uint64(math.Inf(0)) // TODO
+		blockedCall := false
+
+		// map syscall to nothing if syscall is blockedCall
+		//log.Println(pregs.Orig_rax) // TODO
+		if blockedCall = isBlockedSyscall(pregs.Orig_rax); blockedCall {
+			//log.Printf("Blocked: %v\n", pregs.Orig_rax)// TODO
+			pregs.Orig_rax = uint64(math.Inf(0))
 			err = unix.PtraceSetRegs(*pid, &pregs)
 			if err != nil {
 				util.Warn("ptracesetregs: " + err.Error())
@@ -114,8 +106,8 @@ func sandboxProcess(pid *int, done chan CaseReturn) {
 			return
 		}
 
-		if blocked {
-			pregs.Rax = uint64(math.Inf(0)) // TODO
+		if blockedCall {
+			pregs.Rax = uint64(math.Inf(0))
 		}
 	}
 }

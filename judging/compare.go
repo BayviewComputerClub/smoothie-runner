@@ -52,7 +52,7 @@ func judgeStdoutListener(cmd *exec.Cmd, reader *os.File, done chan CaseReturn, e
 		// read rune to parse
 		c, _, err := buff.ReadRune()
 
-		println(string(c)) // TODO
+		//println(string(c)) // TODO
 		if err != nil {
 			if err == io.EOF {
 				continue
