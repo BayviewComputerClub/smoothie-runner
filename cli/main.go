@@ -6,6 +6,7 @@ import (
 	pb "github.com/BayviewComputerClub/smoothie-runner/protocol"
 	"google.golang.org/grpc"
 	"io"
+	"io/ioutil"
 	"log"
 )
 
@@ -36,6 +37,20 @@ func main() {
 	PROBLEM_ID = flag.Uint64("problemid", 1, "specify the problem id")
 	TEST_BATCH_EVEN_IF_FAILED = flag.Bool("forcetest", false, "test batch even if failed")
 
+	// read input, output and code from file
+	input, err := ioutil.ReadFile(*INPUT_FILE)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+	output, err := ioutil.ReadFile(*EXPECTED_ANSWER_FILE)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+	code, err := ioutil.ReadFile(*CODE_FILE)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
 	// start connection
 	println("Attempting connection to host server...")
 	var opts []grpc.DialOption
@@ -62,7 +77,23 @@ func main() {
 				log.Fatalf("Failed receiving stream: %v", err)
 			}
 
+			log.Println("----- Request In -----")
 
+			if in.CompletedTesting {
+				log.Println("Completed testing.")
+				log.Printf("Compile Error: %v\n", in.CompileError)
+				log.Printf("Result: %v\n", in.TestCaseResult.Result)
+				close(waitc)
+				return
+			}
+
+			log.Printf("Compile Error: %v\n", in.CompileError)
+			log.Printf("Result: %v\n", in.TestCaseResult.Result)
+			log.Printf("Result Info: %v\n", in.TestCaseResult.ResultInfo)
+			log.Printf("Memusage: %v\n", in.TestCaseResult.MemUsage)
+			log.Printf("Time: %v\n", in.TestCaseResult.Time)
+
+			log.Println("-----------------------")
 		}
 	}()
 
@@ -71,8 +102,8 @@ func main() {
 			Problem: &pb.Problem{
 				TestBatches: []*pb.ProblemBatch{{
 					Cases: []*pb.ProblemBatchCase{{
-						Input:          "",
-						ExpectedAnswer: "",
+						Input:          string(input),
+						ExpectedAnswer: string(output),
 						TimeLimit:      *TIME_LIMIT,
 						MemLimit:       *MEM_LIMIT,
 					}},
@@ -81,7 +112,7 @@ func main() {
 				TestCasesHashCode: 0,
 			},
 			Language: *LANGUAGE,
-			Code:     "",
+			Code:     string(code),
 		},
 		TestBatchEvenIfFailed: *TEST_BATCH_EVEN_IF_FAILED,
 		CancelTesting:         false,
