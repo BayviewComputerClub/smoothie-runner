@@ -5,14 +5,14 @@ import (
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
 	"github.com/BayviewComputerClub/smoothie-runner/util"
 	"io"
-	"log"
+	"os"
 	"os/exec"
 	"strings"
 )
 
 // compare expected answer with stream
-func judgeStdoutListener(cmd *exec.Cmd, reader *io.ReadCloser, done chan CaseReturn, expectedAnswer *string) {
-	buff := bufio.NewReader(*reader)
+func judgeStdoutListener(cmd *exec.Cmd, reader *os.File, done chan CaseReturn, expectedAnswer *string) {
+	buff := bufio.NewReader(reader)
 
 	expectedScanner := bufio.NewScanner(strings.NewReader(*expectedAnswer))
 	expectedScanner.Scan()
@@ -33,41 +33,34 @@ func judgeStdoutListener(cmd *exec.Cmd, reader *io.ReadCloser, done chan CaseRet
 	// loop through to read rune by rune
 	for {
 		if !util.IsPidRunning(cmd.Process.Pid) {
-			done <- CaseReturn{
-				Result: shared.OUTCOME_WA,
+			if expectingEnd { // expected no more text
+				done <- CaseReturn{
+					Result: shared.OUTCOME_AC,
+				}
+			} else { // did not finish giving full answer
+				done <- CaseReturn{
+					Result: shared.OUTCOME_WA,
+				}
 			}
 			break
 		}
 
-		if buff.Buffered() == 0 {
-			log.Printf("HI %v\n", cmd.ProcessState.Pid()) // TODO
+		if buff.Size() == 0 {
 			continue
 		}
 
 		// read rune to parse
 		c, _, err := buff.ReadRune()
 
-		// check for errors to return
+		println(string(c)) // TODO
 		if err != nil {
-			if err == io.EOF { // no more output
-				if expectingEnd { // expected no more text
-					done <- CaseReturn{
-						Result: shared.OUTCOME_AC,
-					}
-				} else { // did not finish giving full answer
-					done <- CaseReturn{
-						Result: shared.OUTCOME_WA,
-					}
-				}
-				return
-			} else { // other errors
-				done <- CaseReturn{
-					Result:     shared.OUTCOME_RTE,
-					ResultInfo: err.Error(), // TODO
-				}
-				return
+			if err == io.EOF {
+				continue
+			} else {
+				util.Warn("readrune: " + err.Error())
 			}
 		}
+
 
 		// validate obtained rune
 

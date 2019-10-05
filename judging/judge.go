@@ -1,7 +1,6 @@
 package judging
 
 import (
-	"bufio"
 	"fmt"
 	pb "github.com/BayviewComputerClub/smoothie-runner/protocol"
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
@@ -9,6 +8,7 @@ import (
 	"golang.org/x/sys/unix"
 	"io"
 	"io/ioutil"
+	"os"
 	"os/exec"
 	"runtime"
 	"time"
@@ -43,9 +43,9 @@ func judgeStderrListener(reader *io.ReadCloser, done chan CaseReturn) {
 	}
 }
 
-func judgeStdinFeeder(writer *io.WriteCloser, done chan CaseReturn, feed *string) {
-	buff := bufio.NewWriter(*writer)
-	_, err := buff.WriteString(*feed)
+func judgeStdinFeeder(writer *os.File, done chan CaseReturn, feed *string) {
+	println(*feed)
+	_, err := writer.WriteString(*feed)
 	if err != nil {
 		done <- CaseReturn{
 			Result: shared.OUTCOME_RTE,
@@ -70,28 +70,33 @@ func judgeCase(c *exec.Cmd, batchCase *pb.ProblemBatchCase, result chan pb.TestC
 
 	t := time.Now()
 
+	// enable ptrace
+	c.SysProcAttr = &unix.SysProcAttr{Ptrace: true}
+
 	// initialize pipes
+
 	/*stderrPipe, err := c.StderrPipe()
 	if err != nil {
 		util.Warn("stderrpipeinit: " + err.Error())
 		result <- pb.TestCaseResult{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
 		return
 	}*/
-	stdoutPipe, err := c.StdoutPipe()
-	if err != nil {
-		util.Warn("stdoutpipeinit: " + err.Error())
-		result <- pb.TestCaseResult{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
-		return
-	}
-	stdinPipe, err := c.StdinPipe()
-	if err != nil {
-		util.Warn("stdinpipeinit: " + err.Error())
-		result <- pb.TestCaseResult{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
-		return
-	}
 
-	// enable ptrace
-	c.SysProcAttr = &unix.SysProcAttr{Ptrace: true}
+	inputBuff, inStream, err := os.Pipe()
+	if err != nil {
+		panic(err) // TODO
+	}
+	c.Stdin = inStream
+	defer inputBuff.Close()
+	defer inStream.Close()
+
+	outputBuff, outStream, err := os.Pipe()
+	if err != nil {
+		panic(err) // TODO
+	}
+	c.Stdout = outStream
+	defer outputBuff.Close()
+	defer outStream.Close()
 
 	// start process
 	err = c.Start()
@@ -107,11 +112,11 @@ func judgeCase(c *exec.Cmd, batchCase *pb.ProblemBatchCase, result chan pb.TestC
 	c.Wait() // pause execution on first instruction
 
 	// start listener pipes
-	go judgeStdoutListener(c, &stdoutPipe, done, &batchCase.ExpectedAnswer)
+	go judgeStdoutListener(c, outputBuff, done, &batchCase.ExpectedAnswer)
 	//go judgeStderrListener(&stderrPipe, done)
 
 	// feed input to process
-	go judgeStdinFeeder(&stdinPipe, done, &batchCase.Input)
+	go judgeStdinFeeder(inStream, done, &batchCase.Input)
 
 	// sandbox has to hog the thread, so move receiving to another one
 	go func() {

@@ -30,7 +30,5 @@ func (adapter Cpp11Adapter) Compile(code string) (*exec.Cmd, error) {
 		return nil, err
 	}
 
-
-
 	return exec.Command(shared.TESTING_DIR + "/" + curTime), nil
 }

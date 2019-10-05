@@ -13,9 +13,9 @@ import (
 
 // https://filippo.io/linux-syscall-table/
 func isBlockedSyscall(call uint64) bool {
-	return false
+	//return false
 	//allowedCalls := [4]uint64{4, 20, 231, 60}
-	/*allowedCalls := [4]uint64{unix.SYS_READ, unix.SYS_WRITE, unix.SYS_EXIT, unix.SYS_RT_SIGRETURN}
+	allowedCalls := [4]uint64{unix.SYS_READ, unix.SYS_WRITE, unix.SYS_EXIT, unix.SYS_RT_SIGRETURN}
 
 	found := false
 	for _, a := range allowedCalls {
@@ -23,7 +23,7 @@ func isBlockedSyscall(call uint64) bool {
 			found = true
 		}
 	}
-	return !found*/
+	return !found
 }
 
 func sandboxWait4(pgid int, done chan CaseReturn) bool {
@@ -83,7 +83,7 @@ func sandboxProcess(pid *int, done chan CaseReturn) {
 		}
 
 		// get system call
-		pregs := unix.PtraceRegs{}
+		pregs := unix.PtraceRegs{} // user regs struct
 		err = unix.PtraceGetRegs(*pid, &pregs)
 		if err != nil {
 			util.Warn("ptracegetregs: " + err.Error())
