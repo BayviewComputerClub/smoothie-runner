@@ -3,7 +3,9 @@ package judging
 import (
 	"bufio"
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
+	"github.com/BayviewComputerClub/smoothie-runner/util"
 	"io"
+	"log"
 	"os/exec"
 	"strings"
 )
@@ -30,11 +32,16 @@ func judgeStdoutListener(cmd *exec.Cmd, reader *io.ReadCloser, done chan CaseRet
 
 	// loop through to read rune by rune
 	for {
-		if cmd.ProcessState != nil && cmd.ProcessState.Exited() {
+		if !util.IsPidRunning(cmd.Process.Pid) {
 			done <- CaseReturn{
 				Result: shared.OUTCOME_WA,
 			}
 			break
+		}
+
+		if buff.Buffered() == 0 {
+			log.Printf("HI %v\n", cmd.ProcessState.Pid()) // TODO
+			continue
 		}
 
 		// read rune to parse

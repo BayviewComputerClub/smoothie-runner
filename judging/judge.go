@@ -2,12 +2,15 @@ package judging
 
 import (
 	"bufio"
+	"fmt"
 	pb "github.com/BayviewComputerClub/smoothie-runner/protocol"
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
 	"github.com/BayviewComputerClub/smoothie-runner/util"
+	"golang.org/x/sys/unix"
 	"io"
 	"io/ioutil"
 	"os/exec"
+	"runtime"
 	"time"
 )
 
@@ -54,23 +57,26 @@ func judgeStdinFeeder(writer *io.WriteCloser, done chan CaseReturn, feed *string
 
 func judgeCheckTimeout(c *exec.Cmd, d time.Duration, done chan CaseReturn) {
 	time.Sleep(d)
-	if !c.ProcessState.Exited() {
+	if util.IsPidRunning(c.Process.Pid) {
 		done <- CaseReturn {Result: shared.OUTCOME_TLE}
 	}
 }
 
 func judgeCase(c *exec.Cmd, batchCase *pb.ProblemBatchCase, result chan pb.TestCaseResult) {
+	runtime.LockOSThread() // https://github.com/golang/go/issues/7699
+	defer runtime.UnlockOSThread()
+
 	done := make(chan CaseReturn)
 
 	t := time.Now()
 
 	// initialize pipes
-	stderrPipe, err := c.StderrPipe()
+	/*stderrPipe, err := c.StderrPipe()
 	if err != nil {
 		util.Warn("stderrpipeinit: " + err.Error())
 		result <- pb.TestCaseResult{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
 		return
-	}
+	}*/
 	stdoutPipe, err := c.StdoutPipe()
 	if err != nil {
 		util.Warn("stdoutpipeinit: " + err.Error())
@@ -84,9 +90,8 @@ func judgeCase(c *exec.Cmd, batchCase *pb.ProblemBatchCase, result chan pb.TestC
 		return
 	}
 
-	// start listener pipes
-	go judgeStdoutListener(c, &stdoutPipe, done, &batchCase.ExpectedAnswer)
-	go judgeStderrListener(&stderrPipe, done)
+	// enable ptrace
+	c.SysProcAttr = &unix.SysProcAttr{Ptrace: true}
 
 	// start process
 	err = c.Start()
@@ -97,29 +102,40 @@ func judgeCase(c *exec.Cmd, batchCase *pb.ProblemBatchCase, result chan pb.TestC
 	}
 
 	// start time watch (convert to seconds)
-	go judgeCheckTimeout(c, time.Duration(batchCase.TimeLimit*1000000000) * time.Second, done)
+	go judgeCheckTimeout(c, time.Duration(batchCase.TimeLimit) * time.Second, done)
 
-	// start sandboxing
-	pid := c.Process.Pid
-	go sandboxProcess(pid, done) // this will reserve a thread
+	c.Wait() // pause execution on first instruction
+
+	// start listener pipes
+	go judgeStdoutListener(c, &stdoutPipe, done, &batchCase.ExpectedAnswer)
+	//go judgeStderrListener(&stderrPipe, done)
 
 	// feed input to process
 	go judgeStdinFeeder(&stdinPipe, done, &batchCase.Input)
 
-	// wait for judging to finish
-	response := <-done
+	// sandbox has to hog the thread, so move receiving to another one
+	go func() {
+		// wait for judging to finish
+		response := <-done
 
-	if c.ProcessState != nil && !c.ProcessState.Exited() {
-		err = c.Process.Kill()
-		if err != nil {
-			util.Warn("pkill fail: " + err.Error())
+		fmt.Println(response.Result + " " + response.ResultInfo) // TODO
+
+		if util.IsPidRunning(c.Process.Pid) {
+			err = c.Process.Kill()
+			if err != nil  && err.Error() != "os: process already finished" {
+				util.Warn("pkill fail: " + err.Error())
+			}
 		}
-	}
 
-	result <- pb.TestCaseResult{
-		Result:     response.Result,
-		ResultInfo: response.ResultInfo,
-		Time:       time.Since(t).Seconds(),
-		MemUsage:   0, // TODO
-	}
+		result <- pb.TestCaseResult{
+			Result:     response.Result,
+			ResultInfo: response.ResultInfo,
+			Time:       time.Since(t).Seconds(),
+			MemUsage:   0, // TODO
+		}
+	}()
+
+	// start sandboxing
+	// must run on this thread because all ptrace calls have to come from one thread
+	sandboxProcess(&c.Process.Pid, done)
 }

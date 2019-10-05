@@ -18,7 +18,14 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 		res <- shared.JudgeStatus{
 			Err: err,
 			Res: pb.TestSolutionResponse{
-				TestCaseResult:   nil,
+				TestCaseResult:   &pb.TestCaseResult{
+					BatchNumber: 0,
+					CaseNumber:  0,
+					Result:      "",
+					ResultInfo:  "",
+					Time:        0,
+					MemUsage:    0,
+				},
 				CompletedTesting: true,
 				CompileError:     shared.OUTCOME_CE + ": " + err.Error(),
 			},
