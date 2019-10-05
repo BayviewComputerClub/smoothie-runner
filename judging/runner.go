@@ -4,6 +4,9 @@ import (
 	"github.com/BayviewComputerClub/smoothie-runner/adapters"
 	pb "github.com/BayviewComputerClub/smoothie-runner/protocol"
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
+	"os"
+	"strconv"
+	"time"
 )
 
 // TODO cleanup files at end
@@ -21,8 +24,21 @@ func emptyTcr() *pb.TestCaseResult {
 
 func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, cancelled *bool) {
 
+	// create judgesession object
+	session := shared.JudgeSession{
+		Workspace:       shared.TESTING_DIR + "/" + strconv.FormatInt(time.Now().Unix(), 10),
+		Code:            req.Solution.Code,
+		Language:        req.Solution.Language,
+		OriginalRequest: req,
+	}
+
+	err := os.Mkdir(session.Workspace, 0755)
+	if err != nil {
+		panic(err)
+	}
+
 	// attempt to compile user submitted code
-	runCommand, err := adapters.CompileAndGetRunCommand(req.GetSolution().GetLanguage(), req.GetSolution().GetCode())
+	runCommand, err := adapters.CompileAndGetRunCommand(session)
 	if err != nil {
 
 		// send compile error back
@@ -46,7 +62,7 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 			}
 
 			batchRes := make(chan pb.TestCaseResult)
-			go judgeCase(runCommand, batchCase, batchRes)
+			go judgeCase(runCommand, session, batchCase, batchRes)
 
 			// wait for case result
 			result := <-batchRes

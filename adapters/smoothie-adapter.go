@@ -2,12 +2,13 @@ package adapters
 
 import (
 	"errors"
+	"github.com/BayviewComputerClub/smoothie-runner/shared"
 	"os/exec"
 )
 
 type SmoothieAdapter interface {
 	GetName() string
-	Compile(string) (*exec.Cmd, error)
+	Compile(session shared.JudgeSession) (*exec.Cmd, error)
 }
 
 var (
@@ -20,10 +21,10 @@ func init() {
 	adapters["java11"] = Java11Adapter{}
 }
 
-func CompileAndGetRunCommand(language string, code string) (*exec.Cmd, error) {
-	if adapters[language] == nil {
+func CompileAndGetRunCommand(session shared.JudgeSession) (*exec.Cmd, error) {
+	if adapters[session.Language] == nil {
 		return nil, errors.New("language not supported")
 	}
 
-	return adapters[language].Compile(code)
+	return adapters[session.Language].Compile(session)
 }

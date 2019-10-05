@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strconv"
 	"time"
 )
 
@@ -42,18 +43,6 @@ func judgeStderrListener(reader *io.ReadCloser, done chan CaseReturn) {
 	}
 }
 
-func judgeStdinFeeder(writer *os.File, done chan CaseReturn, feed *string) {
-	//println(*feed)
-	_, err := writer.WriteString(*feed)
-	if err != nil {
-		done <- CaseReturn{
-			Result: shared.OUTCOME_RTE,
-		}
-		util.Warn("Stdin: " + err.Error()) // TODO
-		return
-	}
-}
-
 func judgeCheckTimeout(c *exec.Cmd, d time.Duration, done chan CaseReturn) {
 	time.Sleep(d)
 	if util.IsPidRunning(c.Process.Pid) {
@@ -61,9 +50,10 @@ func judgeCheckTimeout(c *exec.Cmd, d time.Duration, done chan CaseReturn) {
 	}
 }
 
-func judgeCase(c *exec.Cmd, batchCase *pb.ProblemBatchCase, result chan pb.TestCaseResult) {
+func judgeCase(c *exec.Cmd, session shared.JudgeSession, batchCase *pb.ProblemBatchCase, result chan pb.TestCaseResult) {
 	runtime.LockOSThread() // https://github.com/golang/go/issues/7699
 	defer runtime.UnlockOSThread()
+	defer os.RemoveAll(session.Workspace)
 
 	done := make(chan CaseReturn)
 
@@ -81,13 +71,17 @@ func judgeCase(c *exec.Cmd, batchCase *pb.ProblemBatchCase, result chan pb.TestC
 		return
 	}*/
 
-	inputBuff, inStream, err := os.Pipe()
+	inputFileLoc := session.Workspace + "/" + strconv.FormatInt(time.Now().Unix(), 10) + ".in"
+	err := ioutil.WriteFile(inputFileLoc, []byte(batchCase.Input), 0644)
 	if err != nil {
-		panic(err) // TODO
+		panic(err)
 	}
-	c.Stdin = inStream
-	defer inputBuff.Close()
-	defer inStream.Close()
+	inputFile, err := os.Open(inputFileLoc)
+	if err != nil {
+		panic(err)
+	}
+	c.Stdin = inputFile
+	defer inputFile.Close()
 
 	outputBuff, outStream, err := os.Pipe()
 	if err != nil {
@@ -113,9 +107,6 @@ func judgeCase(c *exec.Cmd, batchCase *pb.ProblemBatchCase, result chan pb.TestC
 	// start listener pipes
 	go judgeStdoutListener(c, outputBuff, done, &batchCase.ExpectedAnswer)
 	//go judgeStderrListener(&stderrPipe, done)
-
-	// feed input to process
-	go judgeStdinFeeder(inStream, done, &batchCase.Input)
 
 	// sandbox has to hog the thread, so move receiving to another one
 	go func() {
