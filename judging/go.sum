@@ -1,5 +1,6 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 github.com/BayviewComputerClub/smoothie-runner v0.0.0-20191004210318-697ce8368920 h1:nLuc5S1HWSR2mGbzvDRI4cjGCSq7etYAKP/WU6/Y1pE=
+github.com/BayviewComputerClub/smoothie-runner/judging v0.0.0-20191005014351-73e6f012bacd/go.mod h1:DcYHPCS4oXzGDxBluVCNAPdEvQl0kryNcpisHoRI6ss=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b h1:VKtxabqXZkF25pY9ekfRL6a582T4P37/31XEstQ5p58=

@@ -6,7 +6,8 @@ import (
 
 var (
 	PORT int
-	MAX_CORES int
+	MAX_THREADS int
+	TESTING_DIR string
 )
 
 const (

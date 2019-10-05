@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	VERSION = "v1.0.0"
+	VERSION = "v0.9-testing"
 )
 
 func getEnv(key string, def string) string {
@@ -33,10 +33,15 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+	shared.TESTING_DIR = getEnv("TESTING_DIR", "./")
+	shared.MAX_THREADS, err = strconv.Atoi(getEnv("MAX_THREADS", "8"))
+	if err != nil {
+		panic(err)
+	}
 }
 
 func main() {
-	log.Printf("Starting smoothie-runner%s...", VERSION)
+	log.Printf("Starting smoothie-runner %s...", VERSION)
 
 	sigs := make(chan os.Signal, 1)
 	done := make(chan bool, 1)

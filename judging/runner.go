@@ -6,6 +6,8 @@ import (
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
 )
 
+// TODO cleanup files at end
+
 func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, cancelled *bool) {
 
 	// attempt to compile user submitted code

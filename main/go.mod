@@ -3,10 +3,10 @@ module github.com/BayviewComputerClub/smoothie-runner/main
 go 1.13
 
 require (
-	github.com/BayviewComputerClub/smoothie-runner/judging v0.0.0-00010101000000-000000000000
-	github.com/BayviewComputerClub/smoothie-runner/protocol v0.0.0-00010101000000-000000000000
-	github.com/BayviewComputerClub/smoothie-runner/shared v0.0.0-00010101000000-000000000000
-	github.com/BayviewComputerClub/smoothie-runner/util v0.0.0-00010101000000-000000000000
+	github.com/BayviewComputerClub/smoothie-runner/judging v0.0.0-20191005014351-73e6f012bacd
+	github.com/BayviewComputerClub/smoothie-runner/protocol v0.0.0-20191005014351-73e6f012bacd
+	github.com/BayviewComputerClub/smoothie-runner/shared v0.0.0-20191005014351-73e6f012bacd
+	github.com/BayviewComputerClub/smoothie-runner/util v0.0.0-20191005014351-73e6f012bacd
 	google.golang.org/grpc v1.24.0
 )
 

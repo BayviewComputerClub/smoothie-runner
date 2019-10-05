@@ -29,6 +29,8 @@ func (runner *SmoothieRunnerAPI) TestSolution(stream pb.SmoothieRunnerAPI_TestSo
 		return err
 	}
 
+	util.Info("Received request to judge " + strconv.FormatInt(int64(req.Solution.Problem.ProblemID), 10) + " in " + req.Solution.Language + ".")
+
 	stat := make(chan shared.JudgeStatus)
 
 	// whether or not the judge task has been cancelled (so that judging process exists)
@@ -56,7 +58,7 @@ func (runner *SmoothieRunnerAPI) TestSolution(stream pb.SmoothieRunnerAPI_TestSo
 		default: // if no status update, read from stream
 			d, err := stream.Recv()
 			if err == io.EOF {
-				return nil // TODO
+				//return nil // TODO
 			}
 			if err != nil {
 				return err
