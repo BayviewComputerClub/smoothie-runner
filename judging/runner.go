@@ -6,35 +6,47 @@ import (
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
 )
 
-func TestSolution(req *pb.TestSolutionRequest, stream pb.SmoothieRunnerAPI_TestSolutionServer, res chan shared.JudgeStatus) {
+func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, cancelled *bool) {
 
 	// attempt to compile user submitted code
 	runCommand, err := adapters.CompileAndGetRunCommand(req.GetSolution().GetLanguage(), req.GetSolution().GetCode())
 	if err != nil {
-		res <- shared.JudgeStatus{Err: err}
 
 		// send compile error back
-		err = stream.Send(&pb.TestSolutionResponse{
-			TestCaseResult:   nil,
-			CompletedTesting: false,
-			CompileError:     err.Error(),
-		})
+		res <- shared.JudgeStatus{
+			Err: err,
+			Res: pb.TestSolutionResponse{
+				TestCaseResult:   nil,
+				CompletedTesting: true,
+				CompileError:     shared.OUTCOME_CE + ": " + err.Error(),
+			},
+		}
+
 		return
 	}
 
 	// loop over test batches and cases
 	for _, batch := range req.Solution.Problem.TestBatches {
 		for _, batchCase := range batch.Cases {
+			if *cancelled { // exit if cancelled
+				return
+			}
+
 			batchRes := make(chan pb.TestCaseResult)
 			judgeCase(runCommand, batchCase, batchRes)
 
-			// send case result
+			// wait for case result
 			result := <-batchRes
-			err = stream.Send(&pb.TestSolutionResponse{
-				TestCaseResult:   &result,
-				CompletedTesting: false,
-				CompileError:     "",
-			})
+
+			// send result
+			res <- shared.JudgeStatus{
+				Err: nil,
+				Res: pb.TestSolutionResponse{
+					TestCaseResult:   &result,
+					CompletedTesting: false,
+					CompileError:     "",
+				},
+			}
 
 			// exit if whole batch fails
 			if result.Result != shared.OUTCOME_AC && !req.TestBatchEvenIfFailed {
@@ -43,5 +55,14 @@ func TestSolution(req *pb.TestSolutionRequest, stream pb.SmoothieRunnerAPI_TestS
 		}
 	}
 
+	// return successful judging
+	res <- shared.JudgeStatus{
+		Err: nil,
+		Res: pb.TestSolutionResponse{
+			TestCaseResult:   nil,
+			CompletedTesting: true,
+			CompileError:     "",
+		},
+	}
 
 }

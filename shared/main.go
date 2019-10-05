@@ -1,5 +1,9 @@
 package shared
 
+import (
+	pb "github.com/BayviewComputerClub/smoothie-runner/protocol"
+)
+
 var (
 	PORT int
 	MAX_CORES int
@@ -17,5 +21,6 @@ const (
 )
 
 type JudgeStatus struct {
-	Err error
+	Err error // any possible errors
+	Res pb.TestSolutionResponse // response to send back
 }

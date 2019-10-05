@@ -31,20 +31,39 @@ func (runner *SmoothieRunnerAPI) TestSolution(stream pb.SmoothieRunnerAPI_TestSo
 
 	stat := make(chan shared.JudgeStatus)
 
+	// whether or not the judge task has been cancelled (so that judging process exists)
+	isCancelled := false
+	defer func() { isCancelled = true }()
+
 	// start judging
-	go judging.TestSolution(req, stream, stat)
+	go judging.TestSolution(req, stat, &isCancelled)
 
 	for { // listen for further requests and status simultaneously
 		select {
 		case s := <-stat: // if status update
 
-		default: // if no status update, read from stream
-			_, err := stream.Recv()
-			if err == io.EOF {
+			err = stream.Send(&s.Res)
+			if err != nil {
+				util.Warn(err.Error())
+				return err
+			}
+
+			// if completed judging, leave
+			if s.Res.CompletedTesting {
 				return nil
+			}
+
+		default: // if no status update, read from stream
+			d, err := stream.Recv()
+			if err == io.EOF {
+				return nil // TODO
 			}
 			if err != nil {
 				return err
+			}
+
+			if d.CancelTesting {
+				return nil
 			}
 		}
 	}
