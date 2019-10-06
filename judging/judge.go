@@ -47,18 +47,20 @@ func judgeCheckTimeout(c *exec.Cmd, d time.Duration, done chan CaseReturn) {
 
 // pipe test input to buffer
 
-func initInputStream(c *exec.Cmd, session *shared.JudgeSession, input string) {
+func initInputStream(c *exec.Cmd, session *shared.JudgeSession, input string) *os.File {
 	inputFileLoc := session.Workspace + "/" + strconv.FormatInt(time.Now().Unix(), 10) + ".in"
 	err := ioutil.WriteFile(inputFileLoc, []byte(input), 0644)
 	if err != nil {
-		panic(err)
+		util.Warn("inputstream: " + err.Error())
+		return nil
 	}
 	inputFile, err := os.Open(inputFileLoc)
 	if err != nil {
-		panic(err)
+		util.Warn("inputstream: " + err.Error())
+		return nil
 	}
 	c.Stdin = inputFile
-	defer inputFile.Close()
+	return inputFile
 }
 
 // judge individual batch case
@@ -83,9 +85,12 @@ func judgeCase(c *exec.Cmd, session shared.JudgeSession, batchCase *pb.ProblemBa
 		return
 	}*/
 
-	initInputStream(c, &session, batchCase.Input)
-
-
+	f := initInputStream(c, &session, batchCase.Input)
+	if f == nil {
+		result <- pb.TestCaseResult{Result: shared.OUTCOME_ISE, ResultInfo: ""}
+		return
+	}
+	defer f.Close()
 
 	outputBuff, outStream, err := os.Pipe()
 	if err != nil {

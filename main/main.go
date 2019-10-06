@@ -38,6 +38,7 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+	shared.DEBUG = getEnv("DEBUG", "false") == "true"
 }
 
 // entry point

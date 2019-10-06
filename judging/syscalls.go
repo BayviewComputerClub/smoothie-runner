@@ -2,10 +2,12 @@ package judging
 
 import (
 	"bytes"
+	"fmt"
+	"github.com/BayviewComputerClub/smoothie-runner/shared"
 	"github.com/BayviewComputerClub/smoothie-runner/util"
 	"golang.org/x/sys/unix"
-	"log"
 	"math"
+	"strings"
 	"syscall"
 )
 
@@ -30,7 +32,7 @@ var RESTRICTED_CALLS = []uint64 {
 
 var ALLOWED_CALLS = []uint64{
 	unix.SYS_READ,
-	unix.SYS_WRITE,
+	unix.SYS_WRITE, // TODO really?
 	unix.SYS_WRITEV,
 	unix.SYS_STATFS,
 	unix.SYS_GETPGRP,
@@ -143,8 +145,9 @@ func readPeekString(pid int, address uintptr) (string, error) {
 	return string(word[:length]), nil
 }
 
+
 func blockCall(pregs *unix.PtraceRegs, pid int) {
-	log.Printf("Blocked: %v\n", pregs.Orig_rax)// TODO
+	shared.Debug(fmt.Sprintf("Blocked: %v\n", pregs.Orig_rax))
 
 	pregs.Orig_rax = uint64(math.Inf(0))
 	err := unix.PtraceSetRegs(pid, pregs)
@@ -153,19 +156,59 @@ func blockCall(pregs *unix.PtraceRegs, pid int) {
 	}
 }
 
-func blockRestrictedCalls(pregs *unix.PtraceRegs, pid int) bool {
-	var blockedCall bool
+func isAllowedFile(path string) bool {
+	return strings.HasPrefix(path, "/usr/lib")
+}
 
-	if blockedCall = isRestrictedSyscall(pregs.Orig_rax); blockedCall {
-		log.Printf("Restricted: %v\n", pregs.Orig_rax)// TODO
-		// linux support only in this section (peek and poke not on BSDs)
-		// i wish i knew how to call process_vm_readv
+// restrict call if necessary
+// returns whether or not the call should be blocked
+func correctRestrictedCall(pregs *unix.PtraceRegs, pid int) bool {
+	switch int(pregs.Orig_rax) {
+	case unix.SYS_OPENAT, unix.SYS_FACCESSAT:
+
+		wd, err := readPeekString(pid, uintptr(pregs.Rsi)/*0x00400000*/)
+		if err != nil {
+			util.Warn("readpeekstring: " + err.Error())
+			return true
+		}
+		shared.Debug(fmt.Sprintf("PEEKREAD: %v\n", wd))
+		if !isAllowedFile(wd) {
+			return true
+		}
+
+	case unix.SYS_OPEN, unix.SYS_ACCESS, unix.SYS_MKDIR, unix.SYS_UNLINK, unix.SYS_READLINK, unix.SYS_READLINKAT, unix.SYS_STAT, unix.SYS_LSTAT, unix.SYS_FSTATFS:
 
 		wd, err := readPeekString(pid, uintptr(pregs.Rdi)/*0x00400000*/)
 		if err != nil {
-			log.Fatal(err) // TODO
+			util.Warn("readpeekstring: " + err.Error())
+			return true
 		}
-		println(wd) // TODO
+		shared.Debug(fmt.Sprintf("PEEKREAD: %v\n", wd))
+		if !isAllowedFile(wd) {
+			return true
+		}
+
+	case unix.SYS_TGKILL:
+
+	case unix.SYS_KILL:
+
+	case unix.SYS_PRCTL:
+
+		}
+	return false
+}
+
+func blockRestrictedCalls(pregs *unix.PtraceRegs, pid int) bool {
+	var blockedCall bool
+
+	if isRestrictedSyscall(pregs.Orig_rax) {
+		shared.Debug(fmt.Sprintf("Restricted: %v\n", pregs.Orig_rax))
+		// linux support only in this section (peek and poke not on BSDs)
+		// i wish i knew how to call process_vm_readv
+		if correctRestrictedCall(pregs, pid) {
+			blockCall(pregs, pid)
+			blockedCall = true
+		}
 
 	} else if blockedCall = !isAllowedSyscall(pregs.Orig_rax); blockedCall {
 		blockCall(pregs, pid)

@@ -73,6 +73,7 @@ func sandboxProcess(pid *int, done chan CaseReturn) {
 
 		// map syscall to nothing if syscall is blockedCall
 		//log.Println(pregs.Orig_rax) // TODO
+
 		blockedCall := blockRestrictedCalls(&pregs, *pid)
 
 		// run system call
@@ -88,7 +89,7 @@ func sandboxProcess(pid *int, done chan CaseReturn) {
 		}
 
 		if blockedCall {
-			pregs.Rax = uint64(math.Inf(0))
+				pregs.Rax = uint64(math.Inf(0))
 		}
 	}
 }
