@@ -4,22 +4,10 @@ import (
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
 	"github.com/BayviewComputerClub/smoothie-runner/util"
 	"golang.org/x/sys/unix"
-	"log"
 	"math"
 )
 
 // could possibly switch to seccomp instead of ptrace
-
-// https://filippo.io/linux-syscall-table/
-func isBlockedSyscall(call uint64) bool {
-	found := false
-	for _, a := range shared.ALLOWED_CALLS {
-		if a == call {
-			found = true
-		}
-	}
-	return !found
-}
 
 func sandboxWait4(pgid int, done chan CaseReturn) bool {
 	// initialize and get status
@@ -55,7 +43,7 @@ func sandboxProcess(pid *int, done chan CaseReturn) {
 		return
 	}
 
-	err = unix.PtraceSetOptions(*pid, unix.PTRACE_O_EXITKILL)
+	err = unix.PtraceSetOptions(*pid, unix.PTRACE_O_EXITKILL | unix.PTRACE_O_TRACESYSGOOD | unix.PTRACE_O_TRACEEXIT | unix.PTRACE_O_TRACECLONE | unix.PTRACE_O_TRACEFORK | unix.PTRACE_O_TRACEVFORK)
 	if err != nil {
 		util.Warn("ptracesetoptions: " + err.Error())
 		done <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
@@ -83,18 +71,9 @@ func sandboxProcess(pid *int, done chan CaseReturn) {
 			return
 		}
 
-		blockedCall := false
-
 		// map syscall to nothing if syscall is blockedCall
 		//log.Println(pregs.Orig_rax) // TODO
-		if blockedCall = isBlockedSyscall(pregs.Orig_rax); blockedCall {
-			log.Printf("Blocked: %v\n", pregs.Orig_rax)// TODO
-			pregs.Orig_rax = uint64(math.Inf(0))
-			err = unix.PtraceSetRegs(*pid, &pregs)
-			if err != nil {
-				util.Warn("ptracesetregs: " + err.Error())
-			}
-		}
+		blockedCall := blockRestrictedCalls(&pregs, *pid)
 
 		// run system call
 		err = unix.PtraceSyscall(*pid, 0)

@@ -1,6 +1,11 @@
-package shared
+package judging
 
-import "golang.org/x/sys/unix"
+import (
+	"github.com/BayviewComputerClub/smoothie-runner/util"
+	"golang.org/x/sys/unix"
+	"log"
+	"math"
+)
 
 // "inspired" by DMOJ allowed syscalls hehe
 
@@ -91,3 +96,62 @@ var ALLOWED_CALLS = []uint64{
 
 	unix.SYS_CLOCK_NANOSLEEP,
 }
+
+const (
+	LONG_SIZE = 8
+)
+
+func isAllowedSyscall(call uint64) bool {
+	for _, a := range ALLOWED_CALLS {
+		if a == call {
+			return true
+		}
+	}
+	return false
+}
+
+func isRestrictedSyscall(call uint64) bool {
+	for _, a := range RESTRICTED_CALLS {
+		if a == call {
+			return true
+		}
+	}
+	return false
+}
+
+func readPeekString(pid int, addr uintptr, length int) string {
+	str := ""
+
+	i := 0
+	j := length/LONG_SIZE
+
+	for i < j {
+		c, err := unix.PtracePeekData(pid, addr, nil)
+
+	}
+	return str
+}
+
+func blockRestrictedCalls(pregs *unix.PtraceRegs, pid int) bool {
+	var blockedCall bool
+
+	if blockedCall = isRestrictedSyscall(pregs.Orig_rax); blockedCall {
+
+
+		// linux support only in this section (peek and poke not on BSDs)
+		// i wish i knew how to call process_vm_readv
+
+	} else if blockedCall = !isAllowedSyscall(pregs.Orig_rax); blockedCall {
+		log.Printf("Blocked: %v\n", pregs.Orig_rax)// TODO
+
+		pregs.Orig_rax = uint64(math.Inf(0))
+		err := unix.PtraceSetRegs(pid, pregs)
+		if err != nil {
+			util.Warn("ptracesetregs: " + err.Error())
+		}
+	}
+
+	return blockedCall
+}
+
+
