@@ -20,15 +20,8 @@ type CaseReturn struct {
 }
 
 /*
- * Tasks:
- * setrlimit to prevent fork() in processes (use golang.org/x/sys)
- * set nice value to be low
  * run process as noperm user (or just run the whole program with no perm)
- * use ptrace unix calls
- * can use syscall credentials
- * make sure thread is locked
  */
-
 
 func judgeStderrListener(reader *io.ReadCloser, done chan CaseReturn) {
 	str, err := ioutil.ReadAll(*reader)
@@ -43,6 +36,8 @@ func judgeStderrListener(reader *io.ReadCloser, done chan CaseReturn) {
 	}
 }
 
+// check for TLE
+
 func judgeCheckTimeout(c *exec.Cmd, d time.Duration, done chan CaseReturn) {
 	time.Sleep(d)
 	if util.IsPidRunning(c.Process.Pid) {
@@ -50,10 +45,27 @@ func judgeCheckTimeout(c *exec.Cmd, d time.Duration, done chan CaseReturn) {
 	}
 }
 
+// pipe test input to buffer
+
+func initInputStream(c *exec.Cmd, session *shared.JudgeSession, input string) {
+	inputFileLoc := session.Workspace + "/" + strconv.FormatInt(time.Now().Unix(), 10) + ".in"
+	err := ioutil.WriteFile(inputFileLoc, []byte(input), 0644)
+	if err != nil {
+		panic(err)
+	}
+	inputFile, err := os.Open(inputFileLoc)
+	if err != nil {
+		panic(err)
+	}
+	c.Stdin = inputFile
+	defer inputFile.Close()
+}
+
+// judge individual batch case
+
 func judgeCase(c *exec.Cmd, session shared.JudgeSession, batchCase *pb.ProblemBatchCase, result chan pb.TestCaseResult) {
 	runtime.LockOSThread() // https://github.com/golang/go/issues/7699
 	defer runtime.UnlockOSThread()
-	defer os.RemoveAll(session.Workspace)
 
 	done := make(chan CaseReturn)
 
@@ -71,17 +83,9 @@ func judgeCase(c *exec.Cmd, session shared.JudgeSession, batchCase *pb.ProblemBa
 		return
 	}*/
 
-	inputFileLoc := session.Workspace + "/" + strconv.FormatInt(time.Now().Unix(), 10) + ".in"
-	err := ioutil.WriteFile(inputFileLoc, []byte(batchCase.Input), 0644)
-	if err != nil {
-		panic(err)
-	}
-	inputFile, err := os.Open(inputFileLoc)
-	if err != nil {
-		panic(err)
-	}
-	c.Stdin = inputFile
-	defer inputFile.Close()
+	initInputStream(c, &session, batchCase.Input)
+
+
 
 	outputBuff, outStream, err := os.Pipe()
 	if err != nil {
@@ -109,28 +113,32 @@ func judgeCase(c *exec.Cmd, session shared.JudgeSession, batchCase *pb.ProblemBa
 	//go judgeStderrListener(&stderrPipe, done)
 
 	// sandbox has to hog the thread, so move receiving to another one
-	go func() {
-		// wait for judging to finish
-		response := <-done
-
-		//fmt.Println(response.Result + " " + response.ResultInfo) // TODO
-
-		if util.IsPidRunning(c.Process.Pid) {
-			err = c.Process.Kill()
-			if err != nil  && err.Error() != "os: process already finished" {
-				util.Warn("pkill fail: " + err.Error())
-			}
-		}
-
-		result <- pb.TestCaseResult{
-			Result:     response.Result,
-			ResultInfo: response.ResultInfo,
-			Time:       time.Since(t).Seconds(),
-			MemUsage:   0, // TODO
-		}
-	}()
+	go judgeWaitForResponse(c, t, done, result)
 
 	// start sandboxing
 	// must run on this thread because all ptrace calls have to come from one thread
 	sandboxProcess(&c.Process.Pid, done)
+}
+
+// receive response from judging processes
+
+func judgeWaitForResponse(c *exec.Cmd, t time.Time, done chan CaseReturn, result chan pb.TestCaseResult) {
+	// wait for judging to finish
+	response := <-done
+
+	// kill process if still running
+	if util.IsPidRunning(c.Process.Pid) {
+		err := c.Process.Kill()
+		if err != nil  && err.Error() != "os: process already finished" {
+			util.Warn("pkill fail: " + err.Error())
+		}
+	}
+
+	// send result back to runner
+	result <- pb.TestCaseResult{
+		Result:     response.Result,
+		ResultInfo: response.ResultInfo,
+		Time:       time.Since(t).Seconds(),
+		MemUsage:   0, // TODO
+	}
 }

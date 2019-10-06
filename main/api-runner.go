@@ -21,6 +21,7 @@ var (
 type SmoothieRunnerAPI struct{}
 
 func (runner *SmoothieRunnerAPI) TestSolution(stream pb.SmoothieRunnerAPI_TestSolutionServer) error {
+	// receive initial request with data
 	req, err := stream.Recv()
 	if err == io.EOF {
 		return nil
@@ -41,7 +42,7 @@ func (runner *SmoothieRunnerAPI) TestSolution(stream pb.SmoothieRunnerAPI_TestSo
 	// start judging
 	go judging.TestSolution(req, stat, &isCancelled)
 
-	// listen for stream input
+	// listen for judging stream input in goroutine
 	go func() {
 		for {
 			if isCancelled {
@@ -62,7 +63,8 @@ func (runner *SmoothieRunnerAPI) TestSolution(stream pb.SmoothieRunnerAPI_TestSo
 		}
 	}()
 
-	for { // listen for further requests and status simultaneously
+	// combining judging stream and grpc status streams simulaneously
+	for {
 		select {
 		case s := <-stat: // if status update
 

@@ -11,6 +11,7 @@ import (
 )
 
 // compare expected answer with stream
+
 func judgeStdoutListener(cmd *exec.Cmd, reader *os.File, done chan CaseReturn, expectedAnswer *string) {
 	buff := bufio.NewReader(reader)
 
@@ -54,13 +55,11 @@ func judgeStdoutListener(cmd *exec.Cmd, reader *os.File, done chan CaseReturn, e
 
 		//println(string(c)) // TODO
 		if err != nil {
-			if err == io.EOF {
-				continue
-			} else {
+			if err != io.EOF {
 				util.Warn("readrune: " + err.Error())
 			}
+			continue
 		}
-
 
 		// validate obtained rune
 

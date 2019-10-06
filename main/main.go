@@ -40,9 +40,11 @@ func init() {
 	}
 }
 
+// entry point
 func main() {
 	log.Printf("Starting smoothie-runner %s...", VERSION)
 
+	// sigint, sigterm listener
 	sigs := make(chan os.Signal, 1)
 	done := make(chan bool, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
@@ -52,10 +54,11 @@ func main() {
 		done <- true
 	}()
 
+	// start grpc
 	startApiServer()
 	go listenInput()
 
-	<-done // listen for sigint and sigterm
+	<-done // wait for sigint and sigterm
 	shutdown()
 }
 

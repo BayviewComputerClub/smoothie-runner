@@ -14,3 +14,7 @@ func IsPidRunning(pid int) bool {
 		return err == nil || (err.Error() != "no such process" && err.Error() != "os: process already finished")
 	}
 }
+
+func BlockRestrictedCalls() {
+
+}

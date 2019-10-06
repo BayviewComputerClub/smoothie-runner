@@ -9,8 +9,6 @@ import (
 	"time"
 )
 
-// TODO cleanup files at end
-
 func emptyTcr() *pb.TestCaseResult {
 	return &pb.TestCaseResult{
 		BatchNumber: 0,
@@ -32,6 +30,10 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 		OriginalRequest: req,
 	}
 
+	// remove workspace when exit
+	defer os.RemoveAll(session.Workspace)
+
+	// create session workspace
 	err := os.Mkdir(session.Workspace, 0755)
 	if err != nil {
 		panic(err)
