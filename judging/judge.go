@@ -74,8 +74,10 @@ func judgeCase(c *exec.Cmd, session shared.JudgeSession, batchCase *pb.ProblemBa
 
 	t := time.Now()
 
-	// enable ptrace
-	c.SysProcAttr = &unix.SysProcAttr{Ptrace: true}
+	if shared.SANDBOX {
+		// enable ptrace
+		c.SysProcAttr = &unix.SysProcAttr{Ptrace: true}
+	}
 
 	// initialize pipes
 
@@ -121,9 +123,11 @@ func judgeCase(c *exec.Cmd, session shared.JudgeSession, batchCase *pb.ProblemBa
 	// sandbox has to hog the thread, so move receiving to another one
 	go judgeWaitForResponse(c, t, done, result)
 
-	// start sandboxing
-	// must run on this thread because all ptrace calls have to come from one thread
-	sandboxProcess(&c.Process.Pid, done)
+	if shared.SANDBOX {
+		// start sandboxing
+		// must run on this thread because all ptrace calls have to come from one thread
+		sandboxProcess(&c.Process.Pid, done)
+	}
 }
 
 // receive response from judging processes

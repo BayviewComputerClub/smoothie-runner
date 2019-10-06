@@ -55,6 +55,7 @@ func (grader StrictGrader) CompareStream(session *shared.JudgeSession, pid int, 
 			} else { // did not finish giving full answer
 				done <- CaseReturn{
 					Result: shared.OUTCOME_WA,
+					ResultInfo: "Ended early",
 				}
 			}
 			break
@@ -66,7 +67,7 @@ func (grader StrictGrader) CompareStream(session *shared.JudgeSession, pid int, 
 		}
 
 		c, _, err := buff.ReadRune()
-		println(string(c)) // TODO
+		shared.Debug(string(c)) // TODO
 		if err != nil {
 			if err != io.EOF {
 				util.Warn("readrune: " + err.Error())
@@ -127,6 +128,7 @@ func (grader EndTrimGrader) CompareStream(session *shared.JudgeSession, pid int,
 			} else { // did not finish giving full answer
 				done <- CaseReturn{
 					Result: shared.OUTCOME_WA,
+					ResultInfo: "Ended early",
 				}
 			}
 			break
@@ -139,7 +141,7 @@ func (grader EndTrimGrader) CompareStream(session *shared.JudgeSession, pid int,
 		// read rune to parse
 		c, _, err := buff.ReadRune()
 
-		println(string(c)) // TODO
+		shared.Debug(string(c)) // TODO
 		if err != nil {
 			if err != io.EOF {
 				//util.Warn("readrune: " + err.Error())
