@@ -48,6 +48,7 @@ func judgeCheckTimeout(c *exec.Cmd, d time.Duration, done chan CaseReturn) {
 // pipe test input to buffer
 
 func initInputStream(c *exec.Cmd, session *shared.JudgeSession, input string) *os.File {
+	// possibly use fake file instead so code can't access
 	inputFileLoc := session.Workspace + "/" + strconv.FormatInt(time.Now().Unix(), 10) + ".in"
 	err := ioutil.WriteFile(inputFileLoc, []byte(input), 0644)
 	if err != nil {

@@ -33,7 +33,7 @@ func judgeStdoutListener(cmd *exec.Cmd, reader *os.File, done chan CaseReturn, e
 
 	// loop through to read rune by rune
 	for {
-		if !util.IsPidRunning(cmd.Process.Pid) {
+		if !util.IsPidRunning(cmd.Process.Pid) { // possibly should move this after all runes are read
 			if expectingEnd { // expected no more text
 				done <- CaseReturn{
 					Result: shared.OUTCOME_AC,
@@ -53,7 +53,7 @@ func judgeStdoutListener(cmd *exec.Cmd, reader *os.File, done chan CaseReturn, e
 		// read rune to parse
 		c, _, err := buff.ReadRune()
 
-		//println(string(c)) // TODO
+		println(string(c)) // TODO
 		if err != nil {
 			if err != io.EOF {
 				//util.Warn("readrune: " + err.Error())

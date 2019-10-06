@@ -194,6 +194,7 @@ func correctRestrictedCall(pregs *unix.PtraceRegs, pid int) bool {
 
 	case unix.SYS_PRCTL:
 
+
 		}
 	return false
 }

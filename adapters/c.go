@@ -1,8 +1,11 @@
 package adapters
 
 import (
+	"errors"
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
+	"io/ioutil"
 	"os/exec"
+	"strings"
 )
 
 type C11Adapter struct {}
@@ -12,5 +15,15 @@ func (adapter C11Adapter) GetName() string {
 }
 
 func (adapter C11Adapter) Compile(session shared.JudgeSession) (*exec.Cmd, error) {
-	return nil, nil
+	err := ioutil.WriteFile(session.Workspace + "/main.c", []byte(session.Code), 0644)
+	if err != nil {
+		return nil, err
+	}
+
+	output, err := exec.Command("gcc", "-std=c11", session.Workspace+"/main.c", "-o", session.Workspace+"/main").CombinedOutput()
+	if err != nil {
+		return nil, errors.New(strings.ReplaceAll(string(output), session.Workspace+"/main.c", ""))
+	}
+
+	return exec.Command(session.Workspace + "/main"), nil
 }

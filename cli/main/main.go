@@ -37,6 +37,8 @@ func main() {
 	PROBLEM_ID = flag.Uint64("problemid", 1, "specify the problem id")
 	TEST_BATCH_EVEN_IF_FAILED = flag.Bool("forcetest", false, "test batch even if failed")
 
+	flag.Parse()
+
 	// read input, output and code from file
 	input, err := ioutil.ReadFile(*INPUT_FILE)
 	if err != nil {
