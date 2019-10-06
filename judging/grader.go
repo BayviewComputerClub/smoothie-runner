@@ -2,6 +2,7 @@ package judging
 
 import (
 	"bufio"
+	"fmt"
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
 	"github.com/BayviewComputerClub/smoothie-runner/util"
 	"io"
@@ -67,7 +68,7 @@ func (grader StrictGrader) CompareStream(session *shared.JudgeSession, pid int, 
 		}
 
 		c, _, err := buff.ReadRune()
-		shared.Debug(string(c)) // TODO
+		shared.Debug(string(c) + " (" + fmt.Sprint(c) + ")") // TODO
 		if err != nil {
 			if err != io.EOF {
 				util.Warn("readrune: " + err.Error())
@@ -80,13 +81,13 @@ func (grader StrictGrader) CompareStream(session *shared.JudgeSession, pid int, 
 		if (expectingEnd && c != '\n') || (ansIndex < len(ans) && c != ans[ansIndex]) {
 			done <- CaseReturn{
 				Result:     shared.OUTCOME_WA,
-				ResultInfo: "bruh",
+				ResultInfo: "Wrong char",
 			}
 			break
 		}
 
 		// expecting end when reach the end of the file
-		if ansIndex >= len(ans) - 1 {
+		if ansIndex >= len(ans) - 1 || (ans[len(ans)-1] == '\n' && ansIndex >= len(ans) - 2) {
 			expectingEnd = true
 		}
 
@@ -156,7 +157,7 @@ func (grader EndTrimGrader) CompareStream(session *shared.JudgeSession, pid int,
 			if c != '\n' && c != ' ' { // if not new line and space
 				done <- CaseReturn{
 					Result:     shared.OUTCOME_WA,
-					ResultInfo: "bruh",
+					ResultInfo: "Wrong char",
 				}
 				return
 			}
