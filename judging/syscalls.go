@@ -99,6 +99,7 @@ var ALLOWED_CALLS = []uint64{
 
 const (
 	LONG_SIZE = 8
+	BUFFER_SIZE = 4096
 )
 
 func isAllowedSyscall(call uint64) bool {
@@ -119,16 +120,25 @@ func isRestrictedSyscall(call uint64) bool {
 	return false
 }
 
-func readPeekString(pid int, addr uintptr, length int) string {
+func readPeekString(pid int, addr uintptr, length uint64) string {
+	log.Printf("%v %v %v\n", pid, addr, length)
 	str := ""
 
-	i := 0
+	var i uint64
+	i = 0
+
 	j := length/LONG_SIZE
 
 	for i < j {
-		c, err := unix.PtracePeekData(pid, addr, nil)
-
+		println(str)
+		c, err := unix.PtracePeekData(pid, uintptr(uint64(addr) + i * 4), nil)
+		if err != nil {
+			panic(err) // TODO
+		}
+		str += string(rune(c))
+		i++
 	}
+
 	return str
 }
 
@@ -136,10 +146,12 @@ func blockRestrictedCalls(pregs *unix.PtraceRegs, pid int) bool {
 	var blockedCall bool
 
 	if blockedCall = isRestrictedSyscall(pregs.Orig_rax); blockedCall {
-
-
+		log.Printf("Restricted: %v\n", pregs.Orig_rax)// TODO
 		// linux support only in this section (peek and poke not on BSDs)
 		// i wish i knew how to call process_vm_readv
+
+		s := readPeekString(pid, uintptr(pregs.Rip), BUFFER_SIZE)
+		println(s) // TODO
 
 	} else if blockedCall = !isAllowedSyscall(pregs.Orig_rax); blockedCall {
 		log.Printf("Blocked: %v\n", pregs.Orig_rax)// TODO
