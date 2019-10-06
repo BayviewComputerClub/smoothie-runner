@@ -8,7 +8,7 @@ import (
 
 type SmoothieAdapter interface {
 	GetName() string
-	Compile(session shared.JudgeSession) (*exec.Cmd, error)
+	Compile(session shared.JudgeSession) (*exec.Cmd, error) // return command in the workspace
 }
 
 var (
@@ -19,6 +19,7 @@ func init() {
 	adapters["c++11"] = Cpp11Adapter{}
 	adapters["c11"] = C11Adapter{}
 	adapters["java11"] = Java11Adapter{}
+	adapters["python3"] = Python3Adapter{}
 }
 
 func CompileAndGetRunCommand(session shared.JudgeSession) (*exec.Cmd, error) {

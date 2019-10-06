@@ -115,7 +115,7 @@ func judgeCase(c *exec.Cmd, session shared.JudgeSession, batchCase *pb.ProblemBa
 	c.Wait() // pause execution on first instruction
 
 	// start listener pipes
-	go judgeStdoutListener(c, outputBuff, done, &batchCase.ExpectedAnswer)
+	go StartGrader(&session, c.Process.Pid, outputBuff, &batchCase.ExpectedAnswer, done)
 	//go judgeStderrListener(&stderrPipe, done)
 
 	// sandbox has to hog the thread, so move receiving to another one

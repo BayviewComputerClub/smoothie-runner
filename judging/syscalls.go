@@ -200,6 +200,10 @@ func correctRestrictedCall(pregs *unix.PtraceRegs, pid int) bool {
 }
 
 func blockRestrictedCalls(pregs *unix.PtraceRegs, pid int) bool {
+	if !shared.SANDBOX {
+		return false
+	}
+
 	var blockedCall bool
 
 	if isRestrictedSyscall(pregs.Orig_rax) {

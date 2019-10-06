@@ -6,14 +6,100 @@ import (
 	"github.com/BayviewComputerClub/smoothie-runner/util"
 	"io"
 	"os"
-	"os/exec"
 	"strings"
 )
 
-// compare expected answer with stream
+var (
+	graders = make(map[string]Grader)
+)
 
-func judgeStdoutListener(cmd *exec.Cmd, reader *os.File, done chan CaseReturn, expectedAnswer *string) {
-	buff := bufio.NewReader(reader)
+func init() {
+	graders["strict"] = StrictGrader{}
+	graders["endtrim"] = EndTrimGrader{}
+}
+
+type Grader interface {
+	CompareStream(session *shared.JudgeSession, pid int, programOutput *os.File, expectedAnswer *string, done chan CaseReturn)
+}
+
+func StartGrader(session *shared.JudgeSession, pid int, programOutput *os.File, expectedAnswer *string, done chan CaseReturn) {
+	if grader, ok := graders[session.OriginalRequest.Solution.Problem.Grader.Type]; ok {
+		grader.CompareStream(session, pid, programOutput, expectedAnswer, done)
+	} else {
+		done <- CaseReturn{
+			Result:     shared.OUTCOME_ISE,
+			ResultInfo: "Grader not found.",
+		}
+	}
+}
+
+// ***** Strict Grader *****
+// Requires exact output, including whitespace
+// ignores extra new line at end
+
+type StrictGrader struct {}
+
+func (grader StrictGrader) CompareStream(session *shared.JudgeSession, pid int, programOutput *os.File, expectedAnswer *string, done chan CaseReturn) {
+	buff := bufio.NewReader(programOutput)
+	expectingEnd := false
+	ansIndex := 0
+	ans := []rune(strings.ReplaceAll(*expectedAnswer, "\r", ""))
+
+	for {
+
+		if !util.IsPidRunning(pid) { // if the program has ended
+			if expectingEnd { // expected no more text
+				done <- CaseReturn{
+					Result: shared.OUTCOME_AC,
+				}
+			} else { // did not finish giving full answer
+				done <- CaseReturn{
+					Result: shared.OUTCOME_WA,
+				}
+			}
+			break
+		}
+
+		// is the buffer empty
+		if buff.Size() == 0 {
+			continue
+		}
+
+		c, _, err := buff.ReadRune()
+		println(string(c)) // TODO
+		if err != nil {
+			if err != io.EOF {
+				util.Warn("readrune: " + err.Error())
+			}
+			continue
+		}
+
+		// if wrong character or expecting no output
+		// ignore new line at end
+		if (expectingEnd && c != '\n') || (ansIndex < len(ans) && c != ans[ansIndex]) {
+			done <- CaseReturn{
+				Result:     shared.OUTCOME_WA,
+				ResultInfo: "bruh",
+			}
+			break
+		}
+
+		// expecting end when reach the end of the file
+		if ansIndex >= len(ans) - 1 {
+			expectingEnd = true
+		}
+
+		ansIndex++
+	}
+}
+
+// ***** EndTrim Grader *****
+// Ignores whitespace at the end of a line, and new lines characters at the end
+
+type EndTrimGrader struct {}
+
+func (grader EndTrimGrader) CompareStream(session *shared.JudgeSession, pid int, programOutput *os.File, expectedAnswer *string, done chan CaseReturn) {
+	buff := bufio.NewReader(programOutput)
 
 	expectedScanner := bufio.NewScanner(strings.NewReader(*expectedAnswer))
 	expectedScanner.Scan()
@@ -33,7 +119,7 @@ func judgeStdoutListener(cmd *exec.Cmd, reader *os.File, done chan CaseReturn, e
 
 	// loop through to read rune by rune
 	for {
-		if !util.IsPidRunning(cmd.Process.Pid) { // possibly should move this after all runes are read
+		if !util.IsPidRunning(pid) { // possibly should move this after all runes are read
 			if expectingEnd { // expected no more text
 				done <- CaseReturn{
 					Result: shared.OUTCOME_AC,

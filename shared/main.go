@@ -10,6 +10,7 @@ var (
 	MAX_THREADS int
 	TESTING_DIR string
 	DEBUG		bool
+	SANDBOX		bool
 )
 
 const (

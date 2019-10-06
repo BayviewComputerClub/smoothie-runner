@@ -19,6 +19,7 @@ var (
 	EXPECTED_ANSWER_FILE *string
 	TIME_LIMIT           *float64
 	MEM_LIMIT            *float64
+	GRADER				 *string
 
 	PROBLEM_ID                *uint64
 	TEST_BATCH_EVEN_IF_FAILED *bool
@@ -34,6 +35,7 @@ func main() {
 	EXPECTED_ANSWER_FILE = flag.String("answerfile", "./1.out", "specify the location of the file that contains the expected output")
 	TIME_LIMIT = flag.Float64("timelimit", 10.0, "specify the TLE time")
 	MEM_LIMIT = flag.Float64("memlimit", 512, "specify the memory limit")
+	GRADER = flag.String("grader", "endtrim", "specify the grader to use")
 	PROBLEM_ID = flag.Uint64("problemid", 1, "specify the problem id")
 	TEST_BATCH_EVEN_IF_FAILED = flag.Bool("forcetest", false, "test batch even if failed")
 
@@ -115,6 +117,10 @@ func main() {
 				}},
 				ProblemID:         *PROBLEM_ID,
 				TestCasesHashCode: 0,
+				Grader:            &pb.ProblemGrader{
+					Type:       *GRADER,
+					CustomCode: "",
+				},
 			},
 			Language: *LANGUAGE,
 			Code:     string(code),

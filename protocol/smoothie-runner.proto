@@ -22,6 +22,12 @@ message Problem {
     repeated ProblemBatch testBatches = 1;
     uint64 problemID = 2;
     uint64 testCasesHashCode = 3; // hash of testBatches, to update cache if need be
+    ProblemGrader grader = 4;
+}
+
+message ProblemGrader {
+    string type = 1;
+    string customCode = 2;
 }
 
 message ProblemBatch {

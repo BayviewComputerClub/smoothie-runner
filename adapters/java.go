@@ -27,6 +27,5 @@ func (adapter Java11Adapter) Compile(session shared.JudgeSession) (*exec.Cmd, er
 
 	c := exec.Command("/usr/bin/java", "Main")
 	c.Dir = session.Workspace
-
 	return c, nil
 }

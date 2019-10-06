@@ -39,6 +39,7 @@ func init() {
 		panic(err)
 	}
 	shared.DEBUG = getEnv("DEBUG", "false") == "true"
+	shared.SANDBOX = getEnv("SANDBOX", "true") == "false"
 }
 
 // entry point
