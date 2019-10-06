@@ -1,10 +1,12 @@
 package judging
 
 import (
+	"bytes"
 	"github.com/BayviewComputerClub/smoothie-runner/util"
 	"golang.org/x/sys/unix"
 	"log"
 	"math"
+	"syscall"
 )
 
 // "inspired" by DMOJ allowed syscalls hehe
@@ -100,6 +102,11 @@ var ALLOWED_CALLS = []uint64{
 const (
 	LONG_SIZE = 8
 	BUFFER_SIZE = 4096
+
+	// 64 bit registers
+	RBX = 5
+	RCX = 11
+	RDX = 12
 )
 
 func isAllowedSyscall(call uint64) bool {
@@ -120,26 +127,30 @@ func isRestrictedSyscall(call uint64) bool {
 	return false
 }
 
-func readPeekString(pid int, addr uintptr, length uint64) string {
-	log.Printf("%v %v %v\n", pid, addr, length)
-	str := ""
-
-	var i uint64
-	i = 0
-
-	j := length/LONG_SIZE
-
-	for i < j {
-		println(str)
-		c, err := unix.PtracePeekData(pid, uintptr(uint64(addr) + i * 4), nil)
-		if err != nil {
-			panic(err) // TODO
-		}
-		str += string(rune(c))
-		i++
+// grabs the string at the given address.
+func readPeekString(pid int, address uintptr) (string, error) {
+	word := make([]byte, unix.PathMax)
+	_, err := unix.PtracePeekData(pid, address, word)
+	if err != nil {
+		return "", err
 	}
+	length := bytes.IndexByte(word, 0)
+	if length == -1 {
+		length = syscall.PathMax
+	}
+	//v := uint64(0x2Bc0ffee)
+	//err = binary.Read(bytes.NewReader(word), binary.LittleEndian, &v)
+	return string(word[:length]), nil
+}
 
-	return str
+func blockCall(pregs *unix.PtraceRegs, pid int) {
+	log.Printf("Blocked: %v\n", pregs.Orig_rax)// TODO
+
+	pregs.Orig_rax = uint64(math.Inf(0))
+	err := unix.PtraceSetRegs(pid, pregs)
+	if err != nil {
+		util.Warn("ptracesetregs: " + err.Error())
+	}
 }
 
 func blockRestrictedCalls(pregs *unix.PtraceRegs, pid int) bool {
@@ -150,17 +161,14 @@ func blockRestrictedCalls(pregs *unix.PtraceRegs, pid int) bool {
 		// linux support only in this section (peek and poke not on BSDs)
 		// i wish i knew how to call process_vm_readv
 
-		s := readPeekString(pid, uintptr(pregs.Rip), BUFFER_SIZE)
-		println(s) // TODO
+		wd, err := readPeekString(pid, uintptr(pregs.Rdi)/*0x00400000*/)
+		if err != nil {
+			log.Fatal(err) // TODO
+		}
+		println(wd) // TODO
 
 	} else if blockedCall = !isAllowedSyscall(pregs.Orig_rax); blockedCall {
-		log.Printf("Blocked: %v\n", pregs.Orig_rax)// TODO
-
-		pregs.Orig_rax = uint64(math.Inf(0))
-		err := unix.PtraceSetRegs(pid, pregs)
-		if err != nil {
-			util.Warn("ptracesetregs: " + err.Error())
-		}
+		blockCall(pregs, pid)
 	}
 
 	return blockedCall

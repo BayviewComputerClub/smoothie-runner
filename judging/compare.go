@@ -56,7 +56,7 @@ func judgeStdoutListener(cmd *exec.Cmd, reader *os.File, done chan CaseReturn, e
 		//println(string(c)) // TODO
 		if err != nil {
 			if err != io.EOF {
-				util.Warn("readrune: " + err.Error())
+				//util.Warn("readrune: " + err.Error())
 			}
 			continue
 		}
