@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"runtime"
 	"strconv"
+	"syscall"
 	"time"
 )
 
@@ -39,8 +40,17 @@ func judgeStderrListener(reader *io.ReadCloser, done chan CaseReturn) {
 // check for TLE
 
 func judgeCheckTimeout(c *exec.Cmd, d time.Duration, done chan CaseReturn) {
+	hasExited := false
 	time.Sleep(d)
-	if util.IsPidRunning(c.Process.Pid) {
+
+	go func(){ // wait for output by other processes
+		<-done
+		hasExited = true
+	}()
+
+	println(util.IsPidRunning(c.Process.Pid))
+
+	if !hasExited {
 		done <- CaseReturn {Result: shared.OUTCOME_TLE}
 	}
 }
@@ -93,15 +103,12 @@ func judgeCase(c *exec.Cmd, session shared.JudgeSession, batchCase *pb.ProblemBa
 		result <- pb.TestCaseResult{Result: shared.OUTCOME_ISE, ResultInfo: ""}
 		return
 	}
-	defer f.Close()
 
 	outputBuff, outStream, err := os.Pipe()
 	if err != nil {
 		panic(err) // TODO
 	}
 	c.Stdout = outStream
-	defer outputBuff.Close()
-	defer outStream.Close()
 
 	// start process
 	err = c.Start()
@@ -114,19 +121,40 @@ func judgeCase(c *exec.Cmd, session shared.JudgeSession, batchCase *pb.ProblemBa
 	// start time watch (convert to seconds)
 	go judgeCheckTimeout(c, time.Duration(batchCase.TimeLimit) * time.Second, done)
 
-	c.Wait() // pause execution on first instruction
+	if shared.SANDBOX {
+		c.Wait() // pause execution on first instruction for sandbox to start
+	}
 
 	// start listener pipes
 	go StartGrader(&session, c.Process.Pid, outputBuff, &batchCase.ExpectedAnswer, done)
 	//go judgeStderrListener(&stderrPipe, done)
 
-	// sandbox has to hog the thread, so move receiving to another one
-	go judgeWaitForResponse(c, t, done, result)
+	if shared.SANDBOX { // sandbox ends when process ends
+		defer outputBuff.Close()
+		defer outStream.Close()
+		defer f.Close()
+	}
+
+	go func(){
+		c.Wait() // make sure exit code is retrieved to prevent zombie process in nonsandbox environment
+
+		if !shared.SANDBOX {
+			// close streams so that grader will finish grading
+			outputBuff.Close()
+			outStream.Close()
+			f.Close()
+		}
+	}()
 
 	if shared.SANDBOX {
+		// sandbox has to hog the thread, so move receiving to another one
+		go judgeWaitForResponse(c, t, done, result)
+
 		// start sandboxing
 		// must run on this thread because all ptrace calls have to come from one thread
 		sandboxProcess(&c.Process.Pid, done)
+	} else {
+		judgeWaitForResponse(c, t, done, result)
 	}
 }
 
@@ -138,7 +166,8 @@ func judgeWaitForResponse(c *exec.Cmd, t time.Time, done chan CaseReturn, result
 
 	// kill process if still running
 	if util.IsPidRunning(c.Process.Pid) {
-		err := c.Process.Kill()
+		//err := c.Process.Kill()
+		err := c.Process.Signal(syscall.SIGKILL)
 		if err != nil  && err.Error() != "os: process already finished" {
 			util.Warn("pkill fail: " + err.Error())
 		}

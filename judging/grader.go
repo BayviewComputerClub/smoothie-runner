@@ -47,7 +47,6 @@ func (grader StrictGrader) CompareStream(session *shared.JudgeSession, pid int, 
 	ans := []rune(strings.ReplaceAll(*expectedAnswer, "\r", ""))
 
 	for {
-
 		if !util.IsPidRunning(pid) { // if the program has ended
 			if expectingEnd { // expected no more text
 				done <- CaseReturn{
@@ -68,13 +67,25 @@ func (grader StrictGrader) CompareStream(session *shared.JudgeSession, pid int, 
 		}
 
 		c, _, err := buff.ReadRune()
-		shared.Debug(string(c) + " (" + fmt.Sprint(c) + ")") // TODO
 		if err != nil {
+			shared.Debug("readrune: " + err.Error())
 			if err != io.EOF {
-				util.Warn("readrune: " + err.Error())
+				/*
+				if expectingEnd { // expected no more text
+					done <- CaseReturn{
+						Result: shared.OUTCOME_AC,
+					}
+				} else { // did not finish giving full answer
+					done <- CaseReturn{
+						Result: shared.OUTCOME_WA,
+						ResultInfo: "Ended early",
+					}
+				}*/
 			}
 			continue
 		}
+
+		shared.Debug(string(c) + " (" + fmt.Sprint(c) + ")")
 
 		// if wrong character or expecting no output
 		// ignore new line at end
