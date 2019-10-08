@@ -1,11 +1,11 @@
 package judging
 
 import (
+	"bufio"
 	pb "github.com/BayviewComputerClub/smoothie-runner/protocol"
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
 	"github.com/BayviewComputerClub/smoothie-runner/util"
 	"golang.org/x/sys/unix"
-	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -24,16 +24,18 @@ type CaseReturn struct {
  * run process as noperm user (or just run the whole program with no perm)
  */
 
-func judgeStderrListener(reader *io.ReadCloser, done chan CaseReturn) {
-	str, err := ioutil.ReadAll(*reader)
-
-	if err != nil { // should terminate peacefully
-		util.Warn("Stderr: " + err.Error()) // TODO
-	} else {
-		done <- CaseReturn{
-			Result:     shared.OUTCOME_RTE,
-			ResultInfo: string(str),
+func judgeStderrListener(session *shared.JudgeSession, pid int) {
+	buff := bufio.NewReader(session.ErrorBuffer)
+	for {
+		if !util.IsPidRunning(pid) { // if the program has ended
+			break
 		}
+
+		c, _, err := buff.ReadRune()
+		if err != nil {
+			continue
+		}
+		session.Stderr += string(c) // append to stderr
 	}
 }
 
@@ -89,26 +91,32 @@ func judgeCase(c *exec.Cmd, session shared.JudgeSession, batchCase *pb.ProblemBa
 		c.SysProcAttr = &unix.SysProcAttr{Ptrace: true}
 	}
 
+	var err error
 	// initialize pipes
-
-	/*stderrPipe, err := c.StderrPipe()
-	if err != nil {
-		util.Warn("stderrpipeinit: " + err.Error())
-		result <- pb.TestCaseResult{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
-		return
-	}*/
-
-	f := initInputStream(c, &session, batchCase.Input)
-	if f == nil {
+	session.InputStream = initInputStream(c, &session, batchCase.Input)
+	if session.InputStream == nil {
 		result <- pb.TestCaseResult{Result: shared.OUTCOME_ISE, ResultInfo: ""}
 		return
 	}
 
-	outputBuff, outStream, err := os.Pipe()
+	// stdout buffer
+	session.OutputBuffer, session.OutputStream, err = os.Pipe()
 	if err != nil {
-		panic(err) // TODO
+		util.Warn("stdoutpipeinit: " + err.Error())
+		result <- pb.TestCaseResult{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
+		return
 	}
-	c.Stdout = outStream
+	c.Stdout = session.OutputStream
+
+	// stderr buffer
+	session.ErrorBuffer, session.ErrorStream, err = os.Pipe()
+	if err != nil {
+		util.Warn("stderrpipeinit: " + err.Error())
+		result <- pb.TestCaseResult{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
+		return
+	}
+	c.Stderr = session.ErrorStream
+
 
 	// start process
 	err = c.Start()
@@ -126,27 +134,21 @@ func judgeCase(c *exec.Cmd, session shared.JudgeSession, batchCase *pb.ProblemBa
 	}
 
 	// start listener pipes
-	go StartGrader(&session, c.Process.Pid, outputBuff, &batchCase.ExpectedAnswer, done)
-	//go judgeStderrListener(&stderrPipe, done)
-
-	if shared.SANDBOX { // sandbox ends when process ends
-		defer outputBuff.Close()
-		defer outStream.Close()
-		defer f.Close()
-	}
+	go StartGrader(&session, c.Process.Pid, &batchCase.ExpectedAnswer, done)
+	go judgeStderrListener(&session, c.Process.Pid)
 
 	go func(){
 		c.Wait() // make sure exit code is retrieved to prevent zombie process in nonsandbox environment
 
 		if !shared.SANDBOX {
 			// close streams so that grader will finish grading
-			outputBuff.Close()
-			outStream.Close()
-			f.Close()
+			session.CloseStreams()
 		}
 	}()
 
 	if shared.SANDBOX {
+		defer session.CloseStreams() // sandbox ends when process ends
+
 		// sandbox has to hog the thread, so move receiving to another one
 		go judgeWaitForResponse(c, t, done, result)
 

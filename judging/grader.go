@@ -6,7 +6,6 @@ import (
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
 	"github.com/BayviewComputerClub/smoothie-runner/util"
 	"io"
-	"os"
 	"strings"
 )
 
@@ -20,12 +19,12 @@ func init() {
 }
 
 type Grader interface {
-	CompareStream(session *shared.JudgeSession, pid int, programOutput *os.File, expectedAnswer *string, done chan CaseReturn)
+	CompareStream(session *shared.JudgeSession, pid int, expectedAnswer *string, done chan CaseReturn)
 }
 
-func StartGrader(session *shared.JudgeSession, pid int, programOutput *os.File, expectedAnswer *string, done chan CaseReturn) {
+func StartGrader(session *shared.JudgeSession, pid int, expectedAnswer *string, done chan CaseReturn) {
 	if grader, ok := graders[session.OriginalRequest.Solution.Problem.Grader.Type]; ok {
-		grader.CompareStream(session, pid, programOutput, expectedAnswer, done)
+		grader.CompareStream(session, pid, expectedAnswer, done)
 	} else {
 		done <- CaseReturn{
 			Result:     shared.OUTCOME_ISE,
@@ -40,8 +39,8 @@ func StartGrader(session *shared.JudgeSession, pid int, programOutput *os.File, 
 
 type StrictGrader struct {}
 
-func (grader StrictGrader) CompareStream(session *shared.JudgeSession, pid int, programOutput *os.File, expectedAnswer *string, done chan CaseReturn) {
-	buff := bufio.NewReader(programOutput)
+func (grader StrictGrader) CompareStream(session *shared.JudgeSession, pid int, expectedAnswer *string, done chan CaseReturn) {
+	buff := bufio.NewReader(session.OutputBuffer)
 	expectingEnd := false
 	ansIndex := 0
 	ans := []rune(strings.ReplaceAll(*expectedAnswer, "\r", ""))
@@ -69,19 +68,7 @@ func (grader StrictGrader) CompareStream(session *shared.JudgeSession, pid int, 
 		c, _, err := buff.ReadRune()
 		if err != nil {
 			shared.Debug("readrune: " + err.Error())
-			if err != io.EOF {
-				/*
-				if expectingEnd { // expected no more text
-					done <- CaseReturn{
-						Result: shared.OUTCOME_AC,
-					}
-				} else { // did not finish giving full answer
-					done <- CaseReturn{
-						Result: shared.OUTCOME_WA,
-						ResultInfo: "Ended early",
-					}
-				}*/
-			}
+			// if err != io.EOF {}
 			continue
 		}
 
@@ -111,8 +98,8 @@ func (grader StrictGrader) CompareStream(session *shared.JudgeSession, pid int, 
 
 type EndTrimGrader struct {}
 
-func (grader EndTrimGrader) CompareStream(session *shared.JudgeSession, pid int, programOutput *os.File, expectedAnswer *string, done chan CaseReturn) {
-	buff := bufio.NewReader(programOutput)
+func (grader EndTrimGrader) CompareStream(session *shared.JudgeSession, pid int, expectedAnswer *string, done chan CaseReturn) {
+	buff := bufio.NewReader(session.OutputBuffer)
 
 	expectedScanner := bufio.NewScanner(strings.NewReader(*expectedAnswer))
 	expectedScanner.Scan()

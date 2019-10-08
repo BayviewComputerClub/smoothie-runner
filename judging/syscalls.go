@@ -157,7 +157,7 @@ func blockCall(pregs *unix.PtraceRegs, pid int) {
 }
 
 func isAllowedFile(path string) bool {
-	return strings.HasPrefix(path, "/usr/lib")
+	return strings.HasPrefix(path, "/usr/lib") || strings.HasPrefix(path, "/lib")
 }
 
 // restrict call if necessary
