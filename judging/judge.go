@@ -2,6 +2,7 @@ package judging
 
 import (
 	"bufio"
+	"fmt"
 	pb "github.com/BayviewComputerClub/smoothie-runner/protocol"
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
 	"github.com/BayviewComputerClub/smoothie-runner/util"
@@ -50,8 +51,6 @@ func judgeCheckTimeout(c *exec.Cmd, d time.Duration, done chan CaseReturn) {
 		hasExited = true
 	}()
 
-	println(util.IsPidRunning(c.Process.Pid))
-
 	if !hasExited {
 		done <- CaseReturn {Result: shared.OUTCOME_TLE}
 	}
@@ -78,7 +77,7 @@ func initInputStream(c *exec.Cmd, session *shared.JudgeSession, input string) *o
 
 // judge individual batch case
 
-func judgeCase(c *exec.Cmd, session shared.JudgeSession, batchCase *pb.ProblemBatchCase, result chan pb.TestCaseResult) {
+func judgeCase(c *exec.Cmd, session *shared.JudgeSession, batchCase *pb.ProblemBatchCase, result chan pb.TestCaseResult) {
 	runtime.LockOSThread() // https://github.com/golang/go/issues/7699
 	defer runtime.UnlockOSThread()
 
@@ -93,7 +92,7 @@ func judgeCase(c *exec.Cmd, session shared.JudgeSession, batchCase *pb.ProblemBa
 
 	var err error
 	// initialize pipes
-	session.InputStream = initInputStream(c, &session, batchCase.Input)
+	session.InputStream = initInputStream(c, session, batchCase.Input)
 	if session.InputStream == nil {
 		result <- pb.TestCaseResult{Result: shared.OUTCOME_ISE, ResultInfo: ""}
 		return
@@ -117,7 +116,6 @@ func judgeCase(c *exec.Cmd, session shared.JudgeSession, batchCase *pb.ProblemBa
 	}
 	c.Stderr = session.ErrorStream
 
-
 	// start process
 	err = c.Start()
 	if err != nil {
@@ -134,13 +132,24 @@ func judgeCase(c *exec.Cmd, session shared.JudgeSession, batchCase *pb.ProblemBa
 	}
 
 	// start listener pipes
-	go StartGrader(&session, c.Process.Pid, &batchCase.ExpectedAnswer, done)
-	go judgeStderrListener(&session, c.Process.Pid)
+	go StartGrader(session, c.Process.Pid, &batchCase.ExpectedAnswer, done)
+	go judgeStderrListener(session, c.Process.Pid)
 
 	go func(){
-		c.Wait() // make sure exit code is retrieved to prevent zombie process in nonsandbox environment
+		err = c.Wait() // make sure exit code is retrieved to prevent zombie process in nonsandbox environment
 
 		if !shared.SANDBOX {
+
+			session.ExitCode = 0
+			// save exit code
+			if err != nil {
+				if exiterr, ok := err.(*exec.ExitError); ok {
+					if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
+						session.ExitCode = int(status.Signal())
+					}
+				}
+			}
+
 			// close streams so that grader will finish grading
 			session.CloseStreams()
 		}
@@ -150,19 +159,19 @@ func judgeCase(c *exec.Cmd, session shared.JudgeSession, batchCase *pb.ProblemBa
 		defer session.CloseStreams() // sandbox ends when process ends
 
 		// sandbox has to hog the thread, so move receiving to another one
-		go judgeWaitForResponse(c, t, done, result)
+		go judgeWaitForResponse(session, c, t, done, result)
 
 		// start sandboxing
 		// must run on this thread because all ptrace calls have to come from one thread
-		sandboxProcess(&c.Process.Pid, done)
+		sandboxProcess(session, &c.Process.Pid, done)
 	} else {
-		judgeWaitForResponse(c, t, done, result)
+		judgeWaitForResponse(session, c, t, done, result)
 	}
 }
 
 // receive response from judging processes
 
-func judgeWaitForResponse(c *exec.Cmd, t time.Time, done chan CaseReturn, result chan pb.TestCaseResult) {
+func judgeWaitForResponse(session *shared.JudgeSession, c *exec.Cmd, t time.Time, done chan CaseReturn, result chan pb.TestCaseResult) {
 	// wait for judging to finish
 	response := <-done
 
@@ -176,10 +185,19 @@ func judgeWaitForResponse(c *exec.Cmd, t time.Time, done chan CaseReturn, result
 	}
 
 	// send result back to runner
-	result <- pb.TestCaseResult{
-		Result:     response.Result,
-		ResultInfo: response.ResultInfo,
-		Time:       time.Since(t).Seconds(),
-		MemUsage:   0, // TODO
+	if session.ExitCode != 0 {
+		result <- pb.TestCaseResult{
+			Result: shared.OUTCOME_RTE,
+			ResultInfo: fmt.Sprintf("Exit code: %v: %v", session.ExitCode, session.Stderr),
+			Time: time.Since(t).Seconds(),
+			MemUsage: 0,
+		}
+	} else {
+		result <- pb.TestCaseResult{
+			Result:     response.Result,
+			ResultInfo: response.ResultInfo,
+			Time:       time.Since(t).Seconds(),
+			MemUsage:   0, // TODO
+		}
 	}
 }

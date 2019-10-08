@@ -9,7 +9,7 @@ import (
 
 // could possibly switch to seccomp instead of ptrace
 
-func sandboxWait4(pgid int, done chan CaseReturn) bool {
+func sandboxWait4(session *shared.JudgeSession, pgid int, done chan CaseReturn) bool {
 	// initialize and get status
 	var ws unix.WaitStatus
 	wpid, err := unix.Wait4(-1*pgid, &ws, unix.WALL, nil)
@@ -27,6 +27,7 @@ func sandboxWait4(pgid int, done chan CaseReturn) bool {
 
 	// if process has already exited, leave
 	if ws.Exited() {
+		session.ExitCode = int(ws.Signal())
 		return true
 	}
 	return false
@@ -34,7 +35,7 @@ func sandboxWait4(pgid int, done chan CaseReturn) bool {
 
 // do sandboxing of application using ptrace
 
-func sandboxProcess(pid *int, done chan CaseReturn) {
+func sandboxProcess(session *shared.JudgeSession, pid *int, done chan CaseReturn) {
 
 	pgid, err := unix.Getpgid(*pid)
 	if err != nil {
@@ -51,6 +52,7 @@ func sandboxProcess(pid *int, done chan CaseReturn) {
 	}
 
 	for { // scan through each syscall
+
 		err := unix.PtraceSyscall(*pid, 0)
 		if err != nil {
 			util.Warn("ptracesyscall1: " + err.Error())
@@ -58,7 +60,7 @@ func sandboxProcess(pid *int, done chan CaseReturn) {
 			return
 		}
 
-		if sandboxWait4(pgid, done) {
+		if sandboxWait4(session, pgid, done) {
 			return
 		}
 
@@ -84,7 +86,7 @@ func sandboxProcess(pid *int, done chan CaseReturn) {
 			return
 		}
 
-		if sandboxWait4(pgid, done) {
+		if sandboxWait4(session, pgid, done) {
 			return
 		}
 

@@ -64,7 +64,7 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 			}
 
 			batchRes := make(chan pb.TestCaseResult)
-			go judgeCase(runCommand, session, batchCase, batchRes)
+			go judgeCase(runCommand, &session, batchCase, batchRes)
 
 			// wait for case result
 			result := <-batchRes

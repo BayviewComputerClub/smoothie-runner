@@ -9,7 +9,6 @@ type JudgeSession struct {
 	Workspace string
 	Code string
 	Language string
-	Stderr string // error dumped here
 	OriginalRequest *pb.TestSolutionRequest
 
 	// streams during judging
@@ -18,6 +17,10 @@ type JudgeSession struct {
 	OutputStream *os.File
 	ErrorStream *os.File
 	InputStream *os.File
+
+	// per judge session
+	Stderr string // error dumped here
+	ExitCode int
 }
 
 func (session *JudgeSession) CloseStreams() {
