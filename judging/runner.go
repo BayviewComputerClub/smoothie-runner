@@ -5,8 +5,7 @@ import (
 	pb "github.com/BayviewComputerClub/smoothie-runner/protocol"
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
 	"os"
-	"strconv"
-	"time"
+	"github.com/rs/xid"
 )
 
 func emptyTcr() *pb.TestCaseResult {
@@ -24,7 +23,7 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 
 	// create judgesession object
 	session := shared.JudgeSession{
-		Workspace:       shared.TESTING_DIR + "/" + strconv.FormatInt(time.Now().Unix(), 10),
+		Workspace:       shared.TESTING_DIR + "/" + xid.New().String(),
 		Code:            req.Solution.Code,
 		Language:        req.Solution.Language,
 		OriginalRequest: req,
@@ -64,7 +63,20 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 			}
 
 			batchRes := make(chan pb.TestCaseResult)
-			go judgeCase(runCommand, &session, batchCase, batchRes)
+
+			// do judging
+			gradingSession := GradeSession{
+				JudgingSession: &session,
+				Problem:        req.Solution.Problem,
+				Solution:       req.Solution,
+				CurrentBatch:   batchCase,
+				Stderr:         "",
+				ExitCode:       0,
+				StreamResult:   batchRes,
+				StreamDone:     make(chan CaseReturn),
+				Command:        runCommand,
+			}
+			go gradingSession.StartJudging()
 
 			// wait for case result
 			result := <-batchRes

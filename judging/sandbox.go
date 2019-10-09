@@ -9,7 +9,7 @@ import (
 
 // could possibly switch to seccomp instead of ptrace
 
-func sandboxWait4(session *shared.JudgeSession, pgid int, done chan CaseReturn) bool {
+func sandboxWait4(session *GradeSession, pgid int, done chan CaseReturn) bool {
 	// initialize and get status
 	var ws unix.WaitStatus
 	wpid, err := unix.Wait4(-1*pgid, &ws, unix.WALL, nil)
@@ -28,9 +28,8 @@ func sandboxWait4(session *shared.JudgeSession, pgid int, done chan CaseReturn) 
 	// check if segfault, or other stuff
 	// http://people.cs.pitt.edu/~alanjawi/cs449/code/shell/UnixSignals.htm
 	if isStopSignal(ws.StopSignal()) {
-		// this object will be filled in by judge channel
 		session.ExitCode = int(ws.StopSignal())
-		//unix.Kill(-pgid, unix.SIGKILL)
+		// this object will be filled in by judge channel
 		done <- CaseReturn{Result: shared.OUTCOME_RTE, ResultInfo: "",}
 		return true
 	}
@@ -45,7 +44,7 @@ func sandboxWait4(session *shared.JudgeSession, pgid int, done chan CaseReturn) 
 
 // do sandboxing of application using ptrace
 
-func sandboxProcess(session *shared.JudgeSession, pid *int, done chan CaseReturn) {
+func sandboxProcess(session *GradeSession, pid *int, done chan CaseReturn) {
 
 	pgid, err := unix.Getpgid(*pid)
 	if err != nil {

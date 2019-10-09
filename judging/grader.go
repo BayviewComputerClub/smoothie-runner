@@ -19,11 +19,11 @@ func init() {
 }
 
 type Grader interface {
-	CompareStream(session *shared.JudgeSession, pid int, expectedAnswer *string, done chan CaseReturn)
+	CompareStream(session *GradeSession, pid int, expectedAnswer *string, done chan CaseReturn)
 }
 
-func StartGrader(session *shared.JudgeSession, pid int, expectedAnswer *string, done chan CaseReturn) {
-	if grader, ok := graders[session.OriginalRequest.Solution.Problem.Grader.Type]; ok {
+func StartGrader(session *GradeSession, pid int, expectedAnswer *string, done chan CaseReturn) {
+	if grader, ok := graders[session.JudgingSession.OriginalRequest.Solution.Problem.Grader.Type]; ok {
 		grader.CompareStream(session, pid, expectedAnswer, done)
 	} else {
 		done <- CaseReturn{
@@ -39,7 +39,7 @@ func StartGrader(session *shared.JudgeSession, pid int, expectedAnswer *string, 
 
 type StrictGrader struct {}
 
-func (grader StrictGrader) CompareStream(session *shared.JudgeSession, pid int, expectedAnswer *string, done chan CaseReturn) {
+func (grader StrictGrader) CompareStream(session *GradeSession, pid int, expectedAnswer *string, done chan CaseReturn) {
 	buff := bufio.NewReader(session.OutputBuffer)
 	expectingEnd := false
 	ansIndex := 0
@@ -98,7 +98,7 @@ func (grader StrictGrader) CompareStream(session *shared.JudgeSession, pid int, 
 
 type EndTrimGrader struct {}
 
-func (grader EndTrimGrader) CompareStream(session *shared.JudgeSession, pid int, expectedAnswer *string, done chan CaseReturn) {
+func (grader EndTrimGrader) CompareStream(session *GradeSession, pid int, expectedAnswer *string, done chan CaseReturn) {
 	buff := bufio.NewReader(session.OutputBuffer)
 
 	expectedScanner := bufio.NewScanner(strings.NewReader(*expectedAnswer))
