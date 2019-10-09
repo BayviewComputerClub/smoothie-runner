@@ -166,15 +166,17 @@ func readPeekString(pid int, address uintptr) (string, error) {
 	return string(word[:length]), nil
 }
 
-
-func blockCall(pregs *unix.PtraceRegs, pid int) {
-	shared.Debug(fmt.Sprintf("Blocked: %v\n", pregs.Orig_rax))
-
-	pregs.Orig_rax = uint64(math.Inf(0))
+func sandboxChangeCall(pregs *unix.PtraceRegs, pid int, call uint64) {
+	pregs.Orig_rax = call
 	err := unix.PtraceSetRegs(pid, pregs)
 	if err != nil {
 		util.Warn("ptracesetregs: " + err.Error())
 	}
+}
+
+func blockCall(pregs *unix.PtraceRegs, pid int) {
+	shared.Debug(fmt.Sprintf("Blocked: %v\n", pregs.Orig_rax))
+	sandboxChangeCall(pregs, pid, uint64(math.Inf(0)))
 }
 
 func isAllowedFile(path string) bool {

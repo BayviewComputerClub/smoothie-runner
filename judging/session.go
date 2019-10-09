@@ -153,14 +153,19 @@ func (session *GradeSession) StartJudging() {
 	}()
 
 	if shared.SANDBOX {
-		defer session.CloseStreams() // sandbox ends when process ends
+		defer session.CloseStreams()
 
 		// sandbox has to hog the thread, so move receiving to another one
 		go session.WaitVerdict()
 
 		// start sandboxing
 		// must run on this thread because all ptrace calls have to come from one thread
-		sandboxProcess(session, &session.Command.Process.Pid, session.StreamDone)
+		tracer := PTracer{
+			Session:    session,
+			Pid:        session.Command.Process.Pid,
+			StreamDone: session.StreamDone,
+		}
+		tracer.Trace()
 	} else {
 		session.WaitVerdict()
 	}
@@ -223,7 +228,14 @@ func (session *GradeSession) WaitVerdict() {
 	}
 
 	// send result back to runner
-	if session.ExitCode != 0 && session.ExitCode != -1 { // if the program did not exit successfully
+	if response.Result == shared.OUTCOME_WA && session.Stderr != "" { //  if the outcome was wrong answer but there was an error
+		session.StreamResult <- pb.TestCaseResult{
+			Result:     shared.OUTCOME_RTE,
+			ResultInfo: session.Stderr,
+			Time:       time.Since(session.StartTime).Seconds(),
+			MemUsage:   0, // TODO
+		}
+	} else if session.ExitCode != 0 && session.ExitCode != -1 { // if the program did not exit successfully
 		session.StreamResult <- pb.TestCaseResult{
 			Result:     shared.OUTCOME_RTE,
 			ResultInfo: fmt.Sprintf("Exit code: %v: %v", session.ExitCode, session.Stderr),
