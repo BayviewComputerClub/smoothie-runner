@@ -25,9 +25,19 @@ func sandboxWait4(session *shared.JudgeSession, pgid int, done chan CaseReturn) 
 		return true
 	}
 
+	// check if segfault, or other stuff
+	// http://people.cs.pitt.edu/~alanjawi/cs449/code/shell/UnixSignals.htm
+	if isStopSignal(ws.StopSignal()) {
+		// this object will be filled in by judge channel
+		session.ExitCode = int(ws.StopSignal())
+		//unix.Kill(-pgid, unix.SIGKILL)
+		done <- CaseReturn{Result: shared.OUTCOME_RTE, ResultInfo: "",}
+		return true
+	}
+
 	// if process has already exited, leave
 	if ws.Exited() {
-		session.ExitCode = int(ws.Signal())
+		session.ExitCode = int(ws.StopSignal())
 		return true
 	}
 	return false
@@ -44,7 +54,7 @@ func sandboxProcess(session *shared.JudgeSession, pid *int, done chan CaseReturn
 		return
 	}
 
-	err = unix.PtraceSetOptions(*pid, unix.PTRACE_O_EXITKILL | unix.PTRACE_O_TRACESYSGOOD | unix.PTRACE_O_TRACEEXIT | unix.PTRACE_O_TRACECLONE | unix.PTRACE_O_TRACEFORK | unix.PTRACE_O_TRACEVFORK)
+	err = unix.PtraceSetOptions(*pid, unix.PTRACE_O_EXITKILL|unix.PTRACE_O_TRACESYSGOOD|unix.PTRACE_O_TRACEEXIT|unix.PTRACE_O_TRACECLONE|unix.PTRACE_O_TRACEFORK|unix.PTRACE_O_TRACEVFORK)
 	if err != nil {
 		util.Warn("ptracesetoptions: " + err.Error())
 		done <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
@@ -74,8 +84,6 @@ func sandboxProcess(session *shared.JudgeSession, pid *int, done chan CaseReturn
 		}
 
 		// map syscall to nothing if syscall is blockedCall
-		//log.Println(pregs.Orig_rax) // TODO
-
 		blockedCall := blockRestrictedCalls(&pregs, *pid)
 
 		// run system call
@@ -91,8 +99,7 @@ func sandboxProcess(session *shared.JudgeSession, pid *int, done chan CaseReturn
 		}
 
 		if blockedCall {
-				pregs.Rax = uint64(math.Inf(0))
+			pregs.Rax = uint64(math.Inf(0))
 		}
 	}
 }
-

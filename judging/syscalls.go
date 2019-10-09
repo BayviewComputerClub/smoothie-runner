@@ -101,6 +101,18 @@ var ALLOWED_CALLS = []uint64{
 	unix.SYS_CLOCK_NANOSLEEP,
 }
 
+var STOP_SIGNALS = []unix.Signal {
+	unix.SIGQUIT,
+	unix.SIGILL,
+	unix.SIGABRT,
+	unix.SIGFPE,
+	unix.SIGBUS,
+	unix.SIGSEGV,
+	unix.SIGSYS,
+	unix.SIGXCPU,
+	unix.SIGXFSZ,
+}
+
 const (
 	LONG_SIZE = 8
 	BUFFER_SIZE = 4096
@@ -110,6 +122,15 @@ const (
 	RCX = 11
 	RDX = 12
 )
+
+func isStopSignal(signal unix.Signal) bool {
+	for _, a := range STOP_SIGNALS {
+		if a == signal {
+			return true
+		}
+	}
+	return false
+}
 
 func isAllowedSyscall(call uint64) bool {
 	for _, a := range ALLOWED_CALLS {

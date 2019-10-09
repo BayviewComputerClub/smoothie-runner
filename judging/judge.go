@@ -46,13 +46,13 @@ func judgeCheckTimeout(c *exec.Cmd, d time.Duration, done chan CaseReturn) {
 	hasExited := false
 	time.Sleep(d)
 
-	go func(){ // wait for output by other processes
+	go func() { // wait for output by other processes
 		<-done
 		hasExited = true
 	}()
 
 	if !hasExited {
-		done <- CaseReturn {Result: shared.OUTCOME_TLE}
+		done <- CaseReturn{Result: shared.OUTCOME_TLE}
 	}
 }
 
@@ -125,7 +125,7 @@ func judgeCase(c *exec.Cmd, session *shared.JudgeSession, batchCase *pb.ProblemB
 	}
 
 	// start time watch (convert to seconds)
-	go judgeCheckTimeout(c, time.Duration(batchCase.TimeLimit) * time.Second, done)
+	go judgeCheckTimeout(c, time.Duration(batchCase.TimeLimit)*time.Second, done)
 
 	if shared.SANDBOX {
 		c.Wait() // pause execution on first instruction for sandbox to start
@@ -135,7 +135,7 @@ func judgeCase(c *exec.Cmd, session *shared.JudgeSession, batchCase *pb.ProblemB
 	go StartGrader(session, c.Process.Pid, &batchCase.ExpectedAnswer, done)
 	go judgeStderrListener(session, c.Process.Pid)
 
-	go func(){
+	go func() {
 		err = c.Wait() // make sure exit code is retrieved to prevent zombie process in nonsandbox environment
 
 		if !shared.SANDBOX {
@@ -177,22 +177,23 @@ func judgeWaitForResponse(session *shared.JudgeSession, c *exec.Cmd, t time.Time
 
 	// kill process if still running
 	if util.IsPidRunning(c.Process.Pid) {
-		//err := c.Process.Kill()
+		unix.Kill(c.Process.Pid, syscall.SIGTERM)
+		unix.Kill(c.Process.Pid, syscall.SIGKILL) // extra assurance
 		err := c.Process.Signal(syscall.SIGKILL)
-		if err != nil  && err.Error() != "os: process already finished" {
+		if err != nil && err.Error() != "os: process already finished" {
 			util.Warn("pkill fail: " + err.Error())
 		}
 	}
 
 	// send result back to runner
-	if session.ExitCode != 0 {
+	if session.ExitCode != 0 && session.ExitCode != -1 { // if the program did not exit successfully
 		result <- pb.TestCaseResult{
-			Result: shared.OUTCOME_RTE,
+			Result:     shared.OUTCOME_RTE,
 			ResultInfo: fmt.Sprintf("Exit code: %v: %v", session.ExitCode, session.Stderr),
-			Time: time.Since(t).Seconds(),
-			MemUsage: 0,
+			Time:       time.Since(t).Seconds(),
+			MemUsage:   0,
 		}
-	} else {
+	} else { // if the program exited successfully
 		result <- pb.TestCaseResult{
 			Result:     response.Result,
 			ResultInfo: response.ResultInfo,
