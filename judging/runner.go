@@ -4,8 +4,11 @@ import (
 	"github.com/BayviewComputerClub/smoothie-runner/adapters"
 	pb "github.com/BayviewComputerClub/smoothie-runner/protocol"
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
-	"os"
+	"github.com/BayviewComputerClub/smoothie-runner/util"
 	"github.com/rs/xid"
+	"os"
+	"syscall"
+	"unsafe"
 )
 
 func emptyTcr() *pb.TestCaseResult {
@@ -18,6 +21,7 @@ func emptyTcr() *pb.TestCaseResult {
 		MemUsage:    0,
 	}
 }
+
 
 func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, cancelled *bool) {
 
@@ -46,9 +50,41 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 		res <- shared.JudgeStatus{
 			Err: err,
 			Res: pb.TestSolutionResponse{
-				TestCaseResult: emptyTcr(),
+				TestCaseResult:   emptyTcr(),
 				CompletedTesting: true,
 				CompileError:     shared.OUTCOME_CE + ": " + err.Error(),
+			},
+		}
+
+		return
+	}
+
+	// get exec command pointers
+	f, err := os.Open(runCommand.Path)
+	if err != nil {
+		util.Warn("commandfileopen: " + err.Error())
+		res <- shared.JudgeStatus{
+			Err: err,
+			Res: pb.TestSolutionResponse{
+				TestCaseResult:   emptyTcr(),
+				CompletedTesting: true,
+				CompileError:     shared.OUTCOME_ISE,
+			},
+		}
+
+		return
+	}
+	defer f.Close()
+
+	commandArgs, err := syscall.SlicePtrFromStrings(append(runCommand.Args, "NULL"))
+	if err != nil {
+		util.Warn("commandbyteparse: " + err.Error())
+		res <- shared.JudgeStatus{
+			Err: err,
+			Res: pb.TestSolutionResponse{
+				TestCaseResult:   emptyTcr(),
+				CompletedTesting: true,
+				CompileError:     shared.OUTCOME_ISE,
 			},
 		}
 
@@ -75,6 +111,8 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 				StreamResult:   batchRes,
 				StreamDone:     make(chan CaseReturn),
 				Command:        runCommand,
+				ExecCommand:    f.Fd(),
+				ExecArgs:       uintptr(unsafe.Pointer(&commandArgs)),
 			}
 			go gradingSession.StartJudging()
 
@@ -102,7 +140,7 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 	res <- shared.JudgeStatus{
 		Err: nil,
 		Res: pb.TestSolutionResponse{
-			TestCaseResult: emptyTcr(),
+			TestCaseResult:   emptyTcr(),
 			CompletedTesting: true,
 			CompileError:     "",
 		},

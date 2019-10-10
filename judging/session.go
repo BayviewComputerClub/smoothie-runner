@@ -44,6 +44,10 @@ type GradeSession struct {
 	StartTime time.Time
 
 	Command *exec.Cmd
+	ExecCommand uintptr
+	ExecArgs uintptr
+
+	Pid int
 }
 
 /*
@@ -106,51 +110,25 @@ func (session *GradeSession) StartJudging() {
 	runtime.LockOSThread() // https://github.com/golang/go/issues/7699
 	defer runtime.UnlockOSThread()
 
-	if shared.SANDBOX {
-		// enable ptrace
-		session.Command.SysProcAttr = &unix.SysProcAttr{Ptrace: true}
+	// setup tracer
+	tracer := PTracer{
+		Session:     session,
+		StreamDone:  session.StreamDone,
+		ExecCommand: session.ExecCommand,
+		ExecArgs:    session.ExecArgs,
 	}
 
+	tracer.ForkExec()
+	session.Pid = tracer.Pid
+
 	// init pipes
-	session.InitStreams()
+	//session.InitStreams()
 
 	// time
 	session.StartTime = time.Now()
 	go session.WaitTLE()
-
-	err := session.Command.Start()
-	if err != nil {
-		util.Warn("RTE: " + err.Error())
-		session.StreamResult <- pb.TestCaseResult{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
-		return
-	}
-
-	if shared.SANDBOX {
-		session.Command.Wait() // pause execution on first instruction for ptrace to start
-	}
-
-	go StartGrader(session, session.Command.Process.Pid, &session.CurrentBatch.ExpectedAnswer, session.StreamDone)
-	go session.ListenStderr()
-
-	go func() {
-		err = session.Command.Wait() // make sure exit code is retrieved to prevent zombie process in nonsandbox environment
-
-		if !shared.SANDBOX {
-
-			session.ExitCode = 0
-			// save exit code
-			if err != nil {
-				if exiterr, ok := err.(*exec.ExitError); ok {
-					if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-						session.ExitCode = int(status.Signal())
-					}
-				}
-			}
-
-			// close streams so that grader will finish grading
-			session.CloseStreams()
-		}
-	}()
+	//go StartGrader(session, session.Pid, &session.CurrentBatch.ExpectedAnswer, session.StreamDone)
+	//go session.ListenStderr()
 
 	if shared.SANDBOX {
 		defer session.CloseStreams()
@@ -160,11 +138,6 @@ func (session *GradeSession) StartJudging() {
 
 		// start sandboxing
 		// must run on this thread because all ptrace calls have to come from one thread
-		tracer := PTracer{
-			Session:    session,
-			Pid:        session.Command.Process.Pid,
-			StreamDone: session.StreamDone,
-		}
 		tracer.Trace()
 	} else {
 		session.WaitVerdict()
@@ -179,7 +152,7 @@ func (session *GradeSession) StartJudging() {
 func (session *GradeSession) ListenStderr() {
 	buff := bufio.NewReader(session.ErrorBuffer)
 	for {
-		if !util.IsPidRunning(session.Command.Process.Pid) { // if the program has ended
+		if !util.IsPidRunning(session.Pid) { // if the program has ended
 			break
 		}
 
@@ -197,12 +170,11 @@ func (session *GradeSession) ListenStderr() {
 
 func (session *GradeSession) WaitTLE() {
 	hasExited := false
-	time.Sleep(time.Duration(session.CurrentBatch.TimeLimit)*time.Second)
-
 	go func() { // wait for output by other processes
 		<-session.StreamDone
 		hasExited = true
 	}()
+	time.Sleep(time.Duration(session.CurrentBatch.TimeLimit)*time.Second)
 
 	if !hasExited {
 		session.StreamDone <- CaseReturn{Result: shared.OUTCOME_TLE}
@@ -218,13 +190,9 @@ func (session *GradeSession) WaitVerdict() {
 	response := <-session.StreamDone
 
 	// kill process if still running
-	if util.IsPidRunning(session.Command.Process.Pid) {
-		unix.Kill(session.Command.Process.Pid, syscall.SIGTERM)
-		unix.Kill(session.Command.Process.Pid, syscall.SIGKILL) // extra assurance
-		err := session.Command.Process.Signal(syscall.SIGKILL)
-		if err != nil && err.Error() != "os: process already finished" {
-			util.Warn("pkill fail: " + err.Error())
-		}
+	if util.IsPidRunning(session.Pid) {
+		unix.Kill(session.Pid, syscall.SIGTERM)
+		unix.Kill(session.Pid, syscall.SIGKILL) // extra assurance
 	}
 
 	// send result back to runner

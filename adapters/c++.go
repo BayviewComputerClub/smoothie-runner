@@ -26,7 +26,7 @@ func (adapter Cpp11Adapter) Compile(session shared.JudgeSession) (*exec.Cmd, err
 		return nil, errors.New(strings.ReplaceAll(string(output), session.Workspace+"/main.cpp", ""))
 	}
 
-	c := exec.Command("./main")
+	c := exec.Command(session.Workspace+"/main")
 	c.Dir = session.Workspace
 	return c, nil
 }

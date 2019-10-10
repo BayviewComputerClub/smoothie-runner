@@ -14,6 +14,9 @@ type PTracer struct {
 	Pgid int
 
 	StreamDone chan CaseReturn
+
+	ExecCommand uintptr
+	ExecArgs uintptr
 }
 
 func (tracer *PTracer) Wait4() bool {
@@ -39,6 +42,9 @@ func (tracer *PTracer) Wait4() bool {
 		// this object will be filled in by judge channel
 		tracer.StreamDone <- CaseReturn{Result: shared.OUTCOME_RTE, ResultInfo: "",}
 
+		tracer.Kill()
+
+		/*
 		// map system call to exit
 		pregs := unix.PtraceRegs{}
 		err = unix.PtraceGetRegs(tracer.Pid, &pregs)
@@ -55,7 +61,7 @@ func (tracer *PTracer) Wait4() bool {
 			util.Warn("wait4: " + err.Error())
 			tracer.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
 			return true
-		}
+		}*/
 		return true
 	}
 
@@ -86,6 +92,8 @@ func (tracer *PTracer) Trace() {
 		tracer.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
 		return
 	}
+
+	tracer.Wait4()
 
 	err = unix.PtraceSetOptions(tracer.Pid, unix.PTRACE_O_EXITKILL|unix.PTRACE_O_TRACESYSGOOD|unix.PTRACE_O_TRACEEXIT|unix.PTRACE_O_TRACECLONE|unix.PTRACE_O_TRACEFORK|unix.PTRACE_O_TRACEVFORK)
 	if err != nil {
