@@ -61,6 +61,8 @@ func (tracer *PTracer) ForkExec() {
 	if err1 != 0 || pid != 0 {
 		syscall.ForkLock.Unlock()
 
+		// in parent process
+
 		unix.Close(p[1])
 
 		if err1 != 0 {
@@ -105,6 +107,20 @@ func (tracer *PTracer) ForkExec() {
 		goto justleave
 	}
 
+	// set stdin, stdout, stderr file descriptors
+	_, _, err1 = syscall.RawSyscall(syscall.SYS_DUP2, tracer.Session.InputStream.Fd(), 0, 0)
+	if err1 != 0 {
+		goto justleave
+	}
+	_, _, err1 = syscall.RawSyscall(syscall.SYS_DUP2, tracer.Session.OutputStream.Fd(), 1, 0)
+	if err1 != 0 {
+		goto justleave
+	}
+	_, _, err1 = syscall.RawSyscall(syscall.SYS_DUP2, tracer.Session.ErrorStream.Fd(), 2, 0)
+	if err1 != 0 {
+		goto justleave
+	}
+
 	// sync
 	err2 = 0
 	r1, _, err1 = syscall.RawSyscall(syscall.SYS_WRITE, uintptr(pipe), uintptr(unsafe.Pointer(&err2)), unsafe.Sizeof(err2))
@@ -127,10 +143,7 @@ func (tracer *PTracer) ForkExec() {
 	// TODO change working dir
 
 	// execute process
-	println("execcing ") // TODO
-	println(pid)
 	_, _, err1 = syscall.RawSyscall6(unix.SYS_EXECVEAT, tracer.ExecCommand, uintptr(unsafe.Pointer(&empty[0])), uintptr(unsafe.Pointer(&argv[0])), uintptr(unsafe.Pointer(&envv[0])), unix.AT_EMPTY_PATH, 0)
-	println("exec: " + err1.Error())
 
 	justleave:
 		// send error code on pipe

@@ -41,6 +41,7 @@ type GradeSession struct {
 
 	StreamResult chan pb.TestCaseResult // return result to runner
 	StreamDone chan CaseReturn // end batch case with verdict
+	StreamDoneUsed bool
 	StartTime time.Time
 
 	Command *exec.Cmd
@@ -66,7 +67,7 @@ func (session *GradeSession) InitStreams() {
 		session.StreamResult <- pb.TestCaseResult{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
 		return
 	}
-	session.Command.Stdout = session.OutputStream
+	//session.Command.Stdout = session.OutputStream
 
 	// stderr buffer
 	session.ErrorBuffer, session.ErrorStream, err = os.Pipe()
@@ -75,7 +76,7 @@ func (session *GradeSession) InitStreams() {
 		session.StreamResult <- pb.TestCaseResult{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
 		return
 	}
-	session.Command.Stderr = session.ErrorStream
+	//session.Command.Stderr = session.ErrorStream
 }
 
 /*
@@ -98,7 +99,7 @@ func (session *GradeSession) StartInput() {
 		session.StreamResult <- pb.TestCaseResult{Result: shared.OUTCOME_ISE, ResultInfo: ""}
 		return
 	}
-	session.Command.Stdin = inputFile
+	//session.Command.Stdin = inputFile
 	session.InputStream = inputFile
 }
 
@@ -118,17 +119,17 @@ func (session *GradeSession) StartJudging() {
 		ExecArgs:    session.ExecArgs,
 	}
 
+	// init pipes
+	session.InitStreams()
+
 	tracer.ForkExec()
 	session.Pid = tracer.Pid
-
-	// init pipes
-	//session.InitStreams()
 
 	// time
 	session.StartTime = time.Now()
 	go session.WaitTLE()
-	//go StartGrader(session, session.Pid, &session.CurrentBatch.ExpectedAnswer, session.StreamDone)
-	//go session.ListenStderr()
+	go StartGrader(session, session.Pid, &session.CurrentBatch.ExpectedAnswer, session.StreamDone)
+	go session.ListenStderr()
 
 	if shared.SANDBOX {
 		defer session.CloseStreams()
@@ -169,14 +170,10 @@ func (session *GradeSession) ListenStderr() {
  */
 
 func (session *GradeSession) WaitTLE() {
-	hasExited := false
-	go func() { // wait for output by other processes
-		<-session.StreamDone
-		hasExited = true
-	}()
 	time.Sleep(time.Duration(session.CurrentBatch.TimeLimit)*time.Second)
 
-	if !hasExited {
+	if !session.StreamDoneUsed {
+		shared.Debug("TLE")
 		session.StreamDone <- CaseReturn{Result: shared.OUTCOME_TLE}
 	}
 }
@@ -188,11 +185,14 @@ func (session *GradeSession) WaitTLE() {
 func (session *GradeSession) WaitVerdict() {
 	// wait for judging to finish
 	response := <-session.StreamDone
+	session.StreamDoneUsed = true
 
 	// kill process if still running
 	if util.IsPidRunning(session.Pid) {
 		unix.Kill(session.Pid, syscall.SIGTERM)
 		unix.Kill(session.Pid, syscall.SIGKILL) // extra assurance
+		var wstatus unix.WaitStatus
+		unix.Wait4(session.Pid, &wstatus, unix.WALL|unix.WNOHANG, nil) // collect zombie
 	}
 
 	// send result back to runner

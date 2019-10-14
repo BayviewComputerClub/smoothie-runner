@@ -68,7 +68,19 @@ func (grader StrictGrader) CompareStream(session *GradeSession, pid int, expecte
 		c, _, err := buff.ReadRune()
 		if err != nil {
 			shared.Debug("readrune: " + err.Error())
-			// if err != io.EOF {}
+			if err != io.EOF {
+				if expectingEnd { // expected no more text
+					done <- CaseReturn{
+						Result: shared.OUTCOME_AC,
+					}
+				} else { // did not finish giving full answer
+					done <- CaseReturn{
+						Result: shared.OUTCOME_WA,
+						ResultInfo: "Ended early",
+					}
+				}
+				break
+			}
 			continue
 		}
 
