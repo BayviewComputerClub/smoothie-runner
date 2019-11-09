@@ -96,47 +96,52 @@ func (tracer *PTracer) ForkExec() {
 	// now in the child OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
 	// no more golang calls
 
-	if _, _, err1 = syscall.RawSyscall(syscall.SYS_CLOSE, uintptr(p[0]), 0, 0); err1 != 0 {
-		goto justleave
+	if err := unix.Close(p[0]); err != nil {
+		forkLeaveError(pipe, err)
+		return
 	}
 
 	pid, _, err = syscall.RawSyscall(unix.SYS_GETPID, 0, 0, 0)
 
 	_, _, err1 = syscall.RawSyscall(syscall.SYS_SETPGID, 0, 0, 0)
 	if err1 != 0 {
-		goto justleave
+		forkLeaveError(pipe, err1)
+		return
 	}
 
 	// set stdin, stdout, stderr file descriptors
-	_, _, err1 = syscall.RawSyscall(syscall.SYS_DUP2, tracer.Session.InputStream.Fd(), 0, 0)
-	if err1 != 0 {
-		goto justleave
+	if err := unix.Dup2(int(tracer.Session.InputStream.Fd()), 0) ; err != nil {
+		forkLeaveError(pipe, err)
+		return
 	}
-	_, _, err1 = syscall.RawSyscall(syscall.SYS_DUP2, tracer.Session.OutputStream.Fd(), 1, 0)
-	if err1 != 0 {
-		goto justleave
+	if err := unix.Dup2(int(tracer.Session.OutputStream.Fd()), 1) ; err != nil {
+		forkLeaveError(pipe, err)
+		return
 	}
-	_, _, err1 = syscall.RawSyscall(syscall.SYS_DUP2, tracer.Session.ErrorStream.Fd(), 2, 0)
-	if err1 != 0 {
-		goto justleave
+	if err := unix.Dup2(int(tracer.Session.ErrorStream.Fd()), 2) ; err != nil {
+		forkLeaveError(pipe, err)
+		return
 	}
 
 	// sync
 	err2 = 0
 	r1, _, err1 = syscall.RawSyscall(syscall.SYS_WRITE, uintptr(pipe), uintptr(unsafe.Pointer(&err2)), unsafe.Sizeof(err2))
 	if r1 == 0 || err1 != 0 {
-		goto justleave
+		forkLeaveError(pipe, err1)
+		return
 	}
 
 	r1, _, err1 = syscall.RawSyscall(syscall.SYS_READ, uintptr(pipe), uintptr(unsafe.Pointer(&err2)), unsafe.Sizeof(err2))
 	if r1 == 0 || err1 != 0 {
-		goto justleave
+		forkLeaveError(pipe, err1)
+		return
 	}
 
 	if shared.SANDBOX {
 		_, _, err1 = syscall.RawSyscall(syscall.SYS_PTRACE, uintptr(syscall.PTRACE_TRACEME), 0, 0)
 		if err1 != 0 {
-			goto justleave
+			forkLeaveError(pipe, err1)
+			return
 		}
 	}
 
@@ -145,13 +150,14 @@ func (tracer *PTracer) ForkExec() {
 	// execute process
 	_, _, err1 = syscall.RawSyscall6(unix.SYS_EXECVEAT, tracer.ExecCommand, uintptr(unsafe.Pointer(&empty[0])), uintptr(unsafe.Pointer(&argv[0])), uintptr(unsafe.Pointer(&envv[0])), unix.AT_EMPTY_PATH, 0)
 
-	justleave:
-		// send error code on pipe
-		syscall.RawSyscall(unix.SYS_WRITE, uintptr(pipe), uintptr(unsafe.Pointer(&err1)), unsafe.Sizeof(err1))
 	for {
 		syscall.RawSyscall(syscall.SYS_EXIT, uintptr(err1+err2), 0, 0)
 	}
 	// cannot reach this point
+}
+
+func forkLeaveError(pipe int, err error) {
+	syscall.RawSyscall(unix.SYS_WRITE, uintptr(pipe), uintptr(unsafe.Pointer(&err)), unsafe.Sizeof(err))
 }
 
 func handleChildFailed(pid uintptr) {
