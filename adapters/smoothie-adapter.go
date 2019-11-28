@@ -16,7 +16,10 @@ var (
 )
 
 func init() {
+	adapters["c++98"] = Cpp98Adapter{}
 	adapters["c++11"] = Cpp11Adapter{}
+	adapters["c++14"] = Cpp14Adapter{}
+	adapters["c++17"] = Cpp17Adapter{}
 	adapters["c11"] = C11Adapter{}
 	adapters["java11"] = Java11Adapter{}
 	adapters["python3"] = Python3Adapter{}
