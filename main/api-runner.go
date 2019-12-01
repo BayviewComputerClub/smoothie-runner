@@ -39,8 +39,8 @@ func (runner *SmoothieRunnerAPI) TestSolution(stream pb.SmoothieRunnerAPI_TestSo
 	isCancelled := false
 	defer func() { isCancelled = true }()
 
-	// start judging
-	go judging.TestSolution(req, stat, &isCancelled)
+	// add judging request to worker queue
+	judging.AddToQueue(judging.JudgeJob{Req: req, Res: stat, Cancelled: &isCancelled})
 
 	// listen for judging stream input in goroutine
 	go func() {

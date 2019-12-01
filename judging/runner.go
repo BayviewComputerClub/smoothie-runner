@@ -11,6 +11,29 @@ import (
 	"unsafe"
 )
 
+var (
+	workQueue = make(chan JudgeJob)
+)
+
+type JudgeJob struct {
+	Req *pb.TestSolutionRequest
+	Res chan shared.JudgeStatus
+	Cancelled *bool
+}
+
+// add a judging job to queue
+func AddToQueue(job JudgeJob) {
+	workQueue <- job
+}
+
+// start one worker that will use a thread
+func StartQueueWorker() {
+	for {
+		job := <-workQueue
+		TestSolution(job.Req, job.Res, job.Cancelled)
+	}
+}
+
 func emptyTcr() *pb.TestCaseResult {
 	return &pb.TestCaseResult{
 		BatchNumber: 0,
@@ -22,8 +45,34 @@ func emptyTcr() *pb.TestCaseResult {
 	}
 }
 
+func sendISE(err error, res chan shared.JudgeStatus) {
+	// send compile error back
+	res <- shared.JudgeStatus{
+		Err: err,
+		Res: pb.TestSolutionResponse{
+			TestCaseResult:   emptyTcr(),
+			CompletedTesting: true,
+			CompileError:     shared.OUTCOME_CE + ": " + err.Error(),
+		},
+	}
+}
+
+func getCommandFd(path string, res chan shared.JudgeStatus) (uintptr, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		util.Warn("commandfileopen: " + err.Error())
+		sendISE(err, res)
+		return 0, err
+	}
+	defer f.Close()
+	return f.Fd(), err
+}
+
 
 func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, cancelled *bool) {
+	if *cancelled {
+		return
+	}
 
 	// create judgesession object
 	session := shared.JudgeSession{
@@ -43,9 +92,8 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 	}
 
 	// attempt to compile user submitted code
-	runCommand, err := adapters.CompileAndGetRunCommand(session)
+	session.RunCommand, err = adapters.CompileAndGetRunCommand(session)
 	if err != nil {
-
 		// send compile error back
 		res <- shared.JudgeStatus{
 			Err: err,
@@ -55,39 +103,19 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 				CompileError:     shared.OUTCOME_CE + ": " + err.Error(),
 			},
 		}
-
 		return
 	}
 
 	// get exec command pointers
-	f, err := os.Open(runCommand.Path)
+	session.CommandFd, err = getCommandFd(session.RunCommand.Path, res)
 	if err != nil {
-		util.Warn("commandfileopen: " + err.Error())
-		res <- shared.JudgeStatus{
-			Err: err,
-			Res: pb.TestSolutionResponse{
-				TestCaseResult:   emptyTcr(),
-				CompletedTesting: true,
-				CompileError:     shared.OUTCOME_ISE,
-			},
-		}
-
 		return
 	}
-	defer f.Close()
 
-	commandArgs, err := syscall.SlicePtrFromStrings(append(runCommand.Args, "NULL"))
+	session.CommandArgs, err = syscall.SlicePtrFromStrings(append(session.RunCommand.Args, "NULL"))
 	if err != nil {
 		util.Warn("commandbyteparse: " + err.Error())
-		res <- shared.JudgeStatus{
-			Err: err,
-			Res: pb.TestSolutionResponse{
-				TestCaseResult:   emptyTcr(),
-				CompletedTesting: true,
-				CompileError:     shared.OUTCOME_ISE,
-			},
-		}
-
+		sendISE(err, res)
 		return
 	}
 
@@ -98,36 +126,8 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 				return
 			}
 
-			batchRes := make(chan pb.TestCaseResult)
-
-			// do judging
-			gradingSession := GradeSession{
-				JudgingSession: &session,
-				Problem:        req.Solution.Problem,
-				Solution:       req.Solution,
-				CurrentBatch:   batchCase,
-				Stderr:         "",
-				ExitCode:       0,
-				StreamResult:   batchRes,
-				StreamDone:     make(chan CaseReturn),
-				Command:        runCommand,
-				ExecCommand:    f.Fd(),
-				ExecArgs:       uintptr(unsafe.Pointer(&commandArgs)),
-			}
-			go gradingSession.StartJudging()
-
-			// wait for case result
-			result := <-batchRes
-
-			// send result
-			res <- shared.JudgeStatus{
-				Err: nil,
-				Res: pb.TestSolutionResponse{
-					TestCaseResult:   &result,
-					CompletedTesting: false,
-					CompileError:     "",
-				},
-			}
+			// judge the case and get the result
+			result := JudgeCase(&session, res, batchCase)
 
 			// exit if whole batch fails
 			if result.Result != shared.OUTCOME_AC && !req.TestBatchEvenIfFailed {
@@ -146,4 +146,39 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 		},
 	}
 
+}
+
+func JudgeCase(session *shared.JudgeSession, res chan shared.JudgeStatus, batchCase *pb.ProblemBatchCase) pb.TestCaseResult {
+	batchRes := make(chan pb.TestCaseResult)
+
+	// do judging
+	gradingSession := GradeSession{
+		JudgingSession: session,
+		Problem:        session.OriginalRequest.Solution.Problem,
+		Solution:       session.OriginalRequest.Solution,
+		CurrentBatch:   batchCase,
+		Stderr:         "",
+		ExitCode:       0,
+		StreamResult:   batchRes,
+		StreamDone:     make(chan CaseReturn),
+		Command:        session.RunCommand,
+		ExecCommand:    session.CommandFd,
+		ExecArgs:       uintptr(unsafe.Pointer(&session.CommandArgs)),
+	}
+	go gradingSession.StartJudging()
+
+	// wait for case result
+	result := <-batchRes
+
+	// send result
+	res <- shared.JudgeStatus{
+		Err: nil,
+		Res: pb.TestSolutionResponse{
+			TestCaseResult:   &result,
+			CompletedTesting: false,
+			CompileError:     "",
+		},
+	}
+
+	return result
 }

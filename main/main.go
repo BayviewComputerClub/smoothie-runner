@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/BayviewComputerClub/smoothie-runner/judging"
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
 	"github.com/BayviewComputerClub/smoothie-runner/util"
 	"log"
@@ -55,6 +56,11 @@ func main() {
 		util.Info("Received host " + sig.String())
 		done <- true
 	}()
+
+	// start judge workers
+	for i := 0; i < shared.MAX_THREADS; i++ {
+		go judging.StartQueueWorker()
+	}
 
 	// start grpc
 	startApiServer()

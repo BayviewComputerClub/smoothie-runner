@@ -2,6 +2,7 @@ package shared
 
 import (
 	pb "github.com/BayviewComputerClub/smoothie-runner/protocol"
+	"os/exec"
 )
 
 type JudgeSession struct {
@@ -9,4 +10,7 @@ type JudgeSession struct {
 	Code string
 	Language string
 	OriginalRequest *pb.TestSolutionRequest
+	CommandFd uintptr
+	CommandArgs []*byte
+	RunCommand *exec.Cmd
 }
