@@ -15,4 +15,4 @@
 smoothie-runner
 smoothie-runner-cli
 test
-protocol/smoothie-runner.pb.go
+/protocol/smoothie-runner.pb.go

@@ -59,7 +59,7 @@ func main() {
 
 	// start judge workers
 	for i := 0; i < shared.MAX_THREADS; i++ {
-		go judging.StartQueueWorker()
+		go judging.StartQueueWorker(i+1)
 	}
 
 	// start grpc

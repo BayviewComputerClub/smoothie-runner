@@ -1,6 +1,7 @@
 package judging
 
 import (
+	"fmt"
 	"github.com/BayviewComputerClub/smoothie-runner/adapters"
 	pb "github.com/BayviewComputerClub/smoothie-runner/protocol"
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
@@ -27,9 +28,10 @@ func AddToQueue(job JudgeJob) {
 }
 
 // start one worker that will use a thread
-func StartQueueWorker() {
+func StartQueueWorker(num int) {
 	for {
 		job := <-workQueue
+		util.Info(fmt.Sprintf("Worker %d has picked up job for %d in %s.", num, job.Req.Solution.Problem.ProblemID, job.Req.Solution.Language))
 		TestSolution(job.Req, job.Res, job.Cancelled)
 	}
 }
@@ -46,28 +48,15 @@ func emptyTcr() *pb.TestCaseResult {
 }
 
 func sendISE(err error, res chan shared.JudgeStatus) {
-	// send compile error back
 	res <- shared.JudgeStatus{
 		Err: err,
 		Res: pb.TestSolutionResponse{
 			TestCaseResult:   emptyTcr(),
 			CompletedTesting: true,
-			CompileError:     shared.OUTCOME_CE + ": " + err.Error(),
+			CompileError:     shared.OUTCOME_ISE,
 		},
 	}
 }
-
-func getCommandFd(path string, res chan shared.JudgeStatus) (uintptr, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		util.Warn("commandfileopen: " + err.Error())
-		sendISE(err, res)
-		return 0, err
-	}
-	defer f.Close()
-	return f.Fd(), err
-}
-
 
 func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, cancelled *bool) {
 	if *cancelled {
@@ -107,11 +96,16 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 	}
 
 	// get exec command pointers
-	session.CommandFd, err = getCommandFd(session.RunCommand.Path, res)
+	f, err := os.Open(session.RunCommand.Path)
 	if err != nil {
+		util.Warn("commandfileopen: " + err.Error())
+		sendISE(err, res)
 		return
 	}
+	defer f.Close() // must close AFTER the testing is finished
+	session.CommandFd = f.Fd()
 
+	// command args ptr
 	session.CommandArgs, err = syscall.SlicePtrFromStrings(append(session.RunCommand.Args, "NULL"))
 	if err != nil {
 		util.Warn("commandbyteparse: " + err.Error())

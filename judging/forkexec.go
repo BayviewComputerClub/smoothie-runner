@@ -93,8 +93,7 @@ func (tracer *PTracer) ForkExec() {
 		return
 	}
 
-	// now in the child OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
-	// no more golang calls
+	// child forked process
 
 	if err := unix.Close(p[0]); err != nil {
 		forkLeaveError(pipe, err)
@@ -157,6 +156,7 @@ func (tracer *PTracer) ForkExec() {
 }
 
 func forkLeaveError(pipe int, err error) {
+	util.Warn("child: " + err.Error())
 	syscall.RawSyscall(unix.SYS_WRITE, uintptr(pipe), uintptr(unsafe.Pointer(&err)), unsafe.Sizeof(err))
 }
 
