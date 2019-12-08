@@ -20,7 +20,7 @@ message Solution {
 
 message Problem {
     repeated ProblemBatch testBatches = 1;
-    uint64 problemID = 2;
+    string problemID = 2;
     uint64 testCasesHashCode = 3; // hash of testBatches, to update cache if need be
     ProblemGrader grader = 4;
 }

@@ -30,7 +30,7 @@ func (runner *SmoothieRunnerAPI) TestSolution(stream pb.SmoothieRunnerAPI_TestSo
 		return err
 	}
 
-	util.Info("Received request to judge " + strconv.FormatInt(int64(req.Solution.Problem.ProblemID), 10) + " in " + req.Solution.Language + ".")
+	util.Info("Received request to judge " + req.Solution.Problem.ProblemID + " in " + req.Solution.Language + ".")
 
 	stat := make(chan shared.JudgeStatus)
 	streamReceive := make(chan pb.TestSolutionRequest)

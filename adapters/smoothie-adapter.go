@@ -27,7 +27,7 @@ func init() {
 
 func CompileAndGetRunCommand(session shared.JudgeSession) (*exec.Cmd, error) {
 	if adapters[session.Language] == nil {
-		return nil, errors.New("language not supported")
+		return nil, errors.New("language not supported (" + session.Language + ")")
 	}
 
 	return adapters[session.Language].Compile(session)
