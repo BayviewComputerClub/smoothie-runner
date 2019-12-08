@@ -31,7 +31,7 @@ func AddToQueue(job JudgeJob) {
 func StartQueueWorker(num int) {
 	for {
 		job := <-workQueue
-		util.Info(fmt.Sprintf("Worker %d has picked up job for %d in %s.", num, job.Req.Solution.Problem.ProblemID, job.Req.Solution.Language))
+		util.Info(fmt.Sprintf("Worker %d has picked up job for %s in %s.", num, job.Req.Solution.Problem.ProblemID, job.Req.Solution.Language))
 		TestSolution(job.Req, job.Res, job.Cancelled)
 	}
 }
