@@ -1,4 +1,6 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
+github.com/BayviewComputerClub/smoothie-runner v0.0.0-20191201162341-9a7b8c5af5b6 h1:HaEGQoUIs5y35EoVsC0G8/EUeeCHeIKY0e5mGhXc748=
+github.com/BayviewComputerClub/smoothie-runner v0.0.0-20191208015556-c1880f1e696d h1:zsH3CAwZ2zuez1wCf0KBjrhiLlIc2gfdsfRGfJiFgbU=
 github.com/BayviewComputerClub/smoothie-runner/protocol v0.0.0-20191005014351-73e6f012bacd/go.mod h1:u6A8DCin+UPEYd65B/BseYTMjoZ3RFZmVMIR70tGfMI=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=

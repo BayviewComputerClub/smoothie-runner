@@ -1,4 +1,6 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
+github.com/BayviewComputerClub/smoothie-runner v0.0.0-20191201162341-9a7b8c5af5b6 h1:HaEGQoUIs5y35EoVsC0G8/EUeeCHeIKY0e5mGhXc748=
+github.com/BayviewComputerClub/smoothie-runner v0.0.0-20191208015556-c1880f1e696d h1:zsH3CAwZ2zuez1wCf0KBjrhiLlIc2gfdsfRGfJiFgbU=
 github.com/BayviewComputerClub/smoothie-runner/adapters v0.0.0-20191004210318-697ce8368920 h1:bUX4+YSBxoUQd567rLQyPn5oElet2bl1FRiO0lvvdIo=
 github.com/BayviewComputerClub/smoothie-runner/adapters v0.0.0-20191004210318-697ce8368920/go.mod h1:EFMRXu7cFTcspiwbvLLGkT1Gv4279Fs8512VdKydZlE=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=

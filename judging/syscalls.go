@@ -175,7 +175,7 @@ func sandboxChangeCall(pregs *unix.PtraceRegs, pid int, call uint64) {
 }
 
 func blockCall(pregs *unix.PtraceRegs, pid int) {
-	shared.Debug(fmt.Sprintf("Blocked: %v\n", pregs.Orig_rax))
+	shared.Debug(fmt.Sprintf("Blocked: %v", pregs.Orig_rax))
 	sandboxChangeCall(pregs, pid, uint64(math.Inf(0)))
 }
 
@@ -194,7 +194,7 @@ func correctRestrictedCall(pregs *unix.PtraceRegs, pid int) bool {
 			util.Warn("readpeekstring: " + err.Error())
 			return true
 		}
-		shared.Debug(fmt.Sprintf("PEEKREAD: %v\n", wd))
+		shared.Debug(fmt.Sprintf("PEEKREAD: %v", wd))
 		if !isAllowedFile(wd) {
 			return true
 		}
@@ -206,7 +206,7 @@ func correctRestrictedCall(pregs *unix.PtraceRegs, pid int) bool {
 			util.Warn("readpeekstring: " + err.Error())
 			return true
 		}
-		shared.Debug(fmt.Sprintf("PEEKREAD: %v\n", wd))
+		shared.Debug(fmt.Sprintf("PEEKREAD: %v", wd))
 		if !isAllowedFile(wd) {
 			return true
 		}
@@ -226,7 +226,7 @@ func blockRestrictedCalls(pregs *unix.PtraceRegs, pid int) bool {
 	var blockedCall bool
 
 	if isRestrictedSyscall(pregs.Orig_rax) {
-		shared.Debug(fmt.Sprintf("Restricted: %v\n", pregs.Orig_rax))
+		shared.Debug(fmt.Sprintf("Restricted: %v", pregs.Orig_rax))
 		// linux support only in this section (peek and poke not on BSDs)
 		// i wish i knew how to call process_vm_readv
 		if correctRestrictedCall(pregs, pid) {

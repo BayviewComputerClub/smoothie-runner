@@ -32,7 +32,9 @@ func StartQueueWorker(num int) {
 	for {
 		job := <-workQueue
 		util.Info(fmt.Sprintf("Worker %d has picked up job for %s in %s.", num, job.Req.Solution.Problem.ProblemID, job.Req.Solution.Language))
+
 		TestSolution(job.Req, job.Res, job.Cancelled)
+		util.Info(fmt.Sprintf("Worker %v has completed job %v in %v", num, job.Req.Solution.Problem.ProblemID, job.Req.Solution.Language))
 	}
 }
 
@@ -114,18 +116,40 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 	}
 
 	// loop over test batches and cases
-	for _, batch := range req.Solution.Problem.TestBatches {
-		for _, batchCase := range batch.Cases {
+	for i, batch := range req.Solution.Problem.TestBatches {
+
+		shared.Debug(fmt.Sprintf("Batch #%v", i))
+
+		batchFailed := false
+		for j, batchCase := range batch.Cases {
+			shared.Debug(fmt.Sprintf("Judging case #%v", j))
 			if *cancelled { // exit if cancelled
 				return
 			}
 
-			// judge the case and get the result
-			result := JudgeCase(&session, res, batchCase)
+			// if whole batch had failed, skip
+			if !req.TestBatchEvenIfFailed && batchFailed {
+				res <- shared.JudgeStatus{
+					Err: nil,
+					Res: pb.TestSolutionResponse{
+						TestCaseResult: &pb.TestCaseResult{
+							BatchNumber:          uint64(i),
+							CaseNumber:           uint64(j),
+							Result:               shared.OUTCOME_SKIP,
+							ResultInfo:           "",
+						},
+						CompletedTesting:     false,
+						CompileError:         "",
+					},
+				}
+				continue
+			}
 
-			// exit if whole batch fails
-			if result.Result != shared.OUTCOME_AC && !req.TestBatchEvenIfFailed {
-				break
+			// judge the case and get the result
+			result := JudgeCase(uint64(i), uint64(j), &session, res, batchCase)
+
+			if result.Result != shared.OUTCOME_AC {
+				batchFailed = true
 			}
 		}
 	}
@@ -142,11 +166,13 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 
 }
 
-func JudgeCase(session *shared.JudgeSession, res chan shared.JudgeStatus, batchCase *pb.ProblemBatchCase) pb.TestCaseResult {
+func JudgeCase(caseNum uint64, batchNum uint64, session *shared.JudgeSession, res chan shared.JudgeStatus, batchCase *pb.ProblemBatchCase) pb.TestCaseResult {
 	batchRes := make(chan pb.TestCaseResult)
 
 	// do judging
 	gradingSession := GradeSession{
+		CaseNum: caseNum,
+		BatchNum: batchNum,
 		JudgingSession: session,
 		Problem:        session.OriginalRequest.Solution.Problem,
 		Solution:       session.OriginalRequest.Solution,

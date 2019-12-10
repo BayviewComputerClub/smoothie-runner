@@ -22,6 +22,7 @@ const (
 	OUTCOME_MLE = "MLE" // memory limit exceeded
 	OUTCOME_ILL = "ILL" // illegal operation
 	OUTCOME_ISE = "ISE" // internal server error
+	OUTCOME_SKIP = "SKIP" // skipped judging
 )
 
 type JudgeStatus struct {

@@ -28,6 +28,9 @@ type GradeSession struct {
 	Solution *pb.Solution
 	CurrentBatch *pb.ProblemBatchCase
 
+	BatchNum uint64
+	CaseNum uint64
+
 	// streams during judging
 	OutputBuffer *os.File
 	ErrorBuffer  *os.File
@@ -202,6 +205,8 @@ func (session *GradeSession) WaitVerdict() {
 			ResultInfo: session.Stderr,
 			Time:       time.Since(session.StartTime).Seconds(),
 			MemUsage:   0, // TODO
+			BatchNumber: session.BatchNum,
+			CaseNumber: session.CaseNum,
 		}
 	} else if session.ExitCode != 0 && session.ExitCode != -1 { // if the program did not exit successfully
 		session.StreamResult <- pb.TestCaseResult{
@@ -209,6 +214,8 @@ func (session *GradeSession) WaitVerdict() {
 			ResultInfo: fmt.Sprintf("Exit code: %v: %v", session.ExitCode, session.Stderr),
 			Time:       time.Since(session.StartTime).Seconds(),
 			MemUsage:   0,
+			BatchNumber: session.BatchNum,
+			CaseNumber: session.CaseNum,
 		}
 	} else { // if the program exited successfully
 		session.StreamResult <- pb.TestCaseResult{
@@ -216,6 +223,8 @@ func (session *GradeSession) WaitVerdict() {
 			ResultInfo: response.ResultInfo,
 			Time:       time.Since(session.StartTime).Seconds(),
 			MemUsage:   0, // TODO
+			BatchNumber: session.BatchNum,
+			CaseNumber: session.CaseNum,
 		}
 	}
 }
