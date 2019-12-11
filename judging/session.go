@@ -70,7 +70,6 @@ func (session *GradeSession) InitStreams() {
 		session.StreamResult <- pb.TestCaseResult{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
 		return
 	}
-	//session.Command.Stdout = session.OutputStream
 
 	// stderr buffer
 	session.ErrorBuffer, session.ErrorStream, err = os.Pipe()
@@ -79,7 +78,6 @@ func (session *GradeSession) InitStreams() {
 		session.StreamResult <- pb.TestCaseResult{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
 		return
 	}
-	//session.Command.Stderr = session.ErrorStream
 }
 
 /*

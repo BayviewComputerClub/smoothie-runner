@@ -68,6 +68,10 @@ func (runner *SmoothieRunnerAPI) TestSolution(stream pb.SmoothieRunnerAPI_TestSo
 		select {
 		case s := <-stat: // if status update
 
+			if !s.Res.CompletedTesting {
+				shared.Debug(fmt.Sprintf("Result for %v-%v: %v %v", s.Res.TestCaseResult.BatchNumber, s.Res.TestCaseResult.CaseNumber, s.Res.TestCaseResult.Result, s.Res.TestCaseResult.ResultInfo))
+			}
+
 			err = stream.Send(&s.Res)
 			if err != nil {
 				util.Warn(err.Error())

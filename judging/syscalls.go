@@ -32,7 +32,7 @@ var RESTRICTED_CALLS = []uint64 {
 
 var ALLOWED_CALLS = []uint64{
 	unix.SYS_READ,
-	unix.SYS_WRITE, // TODO really?
+	unix.SYS_WRITE,
 	unix.SYS_WRITEV,
 	unix.SYS_STATFS,
 	unix.SYS_GETPGRP,

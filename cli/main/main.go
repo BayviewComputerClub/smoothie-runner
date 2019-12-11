@@ -21,7 +21,7 @@ var (
 	MEM_LIMIT            *float64
 	GRADER				 *string
 
-	PROBLEM_ID                *uint64
+	PROBLEM_ID                *string
 	TEST_BATCH_EVEN_IF_FAILED *bool
 )
 
@@ -36,7 +36,7 @@ func main() {
 	TIME_LIMIT = flag.Float64("timelimit", 10.0, "specify the TLE time")
 	MEM_LIMIT = flag.Float64("memlimit", 512, "specify the memory limit")
 	GRADER = flag.String("grader", "strict", "specify the grader to use")
-	PROBLEM_ID = flag.Uint64("problemid", 1, "specify the problem id")
+	PROBLEM_ID = flag.String("problemid", "1", "specify the problem id")
 	TEST_BATCH_EVEN_IF_FAILED = flag.Bool("forcetest", false, "test batch even if failed")
 
 	flag.Parse()

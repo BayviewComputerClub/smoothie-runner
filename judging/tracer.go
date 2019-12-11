@@ -37,31 +37,12 @@ func (tracer *PTracer) Wait4() bool {
 
 	// check if segfault, or other stuff
 	// http://people.cs.pitt.edu/~alanjawi/cs449/code/shell/UnixSignals.htm
+
 	if isStopSignal(ws.StopSignal()) {
 		tracer.Session.ExitCode = int(ws.StopSignal())
 		// this object will be filled in by judge channel
 		tracer.StreamDone <- CaseReturn{Result: shared.OUTCOME_RTE, ResultInfo: "",}
-
 		tracer.Kill()
-
-		/*
-		// map system call to exit
-		pregs := unix.PtraceRegs{}
-		err = unix.PtraceGetRegs(tracer.Pid, &pregs)
-		if err != nil {
-			util.Warn("ptracegetregs: " + err.Error())
-			tracer.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
-			return true
-		}
-
-		sandboxChangeCall(&pregs, tracer.Pid, unix.SYS_EXIT)
-		tracer.Syscall()
-		_, err := unix.Wait4(-1*tracer.Pgid, &ws, unix.WALL, nil)
-		if err != nil {
-			util.Warn("wait4: " + err.Error())
-			tracer.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
-			return true
-		}*/
 		return true
 	}
 
