@@ -64,6 +64,7 @@ func (session *GradeSession) InitStreams() {
 
 	var err error
 	// stdout buffer
+
 	session.OutputBuffer, session.OutputStream, err = os.Pipe()
 	if err != nil {
 		util.Warn("stdoutpipeinit: " + err.Error())
@@ -184,6 +185,12 @@ func (session *GradeSession) WaitTLE() {
  */
 
 func (session *GradeSession) WaitVerdict() {
+	defer func() { // prevent buffer from closing too early
+		if session.OutputBuffer != nil {
+			session.OutputBuffer.Close()
+		}
+	}()
+
 	// wait for judging to finish
 	response := <-session.StreamDone
 	session.StreamDoneUsed = true
@@ -235,9 +242,9 @@ func (session *GradeSession) CloseStreams() {
 	if session.OutputStream != nil {
 		session.OutputStream.Close()
 	}
-	if session.OutputBuffer != nil {
+	/*if session.OutputBuffer != nil {
 		session.OutputBuffer.Close()
-	}
+	}*/
 	if session.ErrorStream != nil {
 		session.ErrorStream.Close()
 	}

@@ -46,7 +46,7 @@ func (grader StrictGrader) CompareStream(session *GradeSession, pid int, expecte
 	ans := []rune(strings.ReplaceAll(*expectedAnswer, "\r", ""))
 
 	for {
-		if !util.IsPidRunning(pid) { // if the program has ended
+		if !util.IsPidRunning(pid) && buff.Buffered() == 0 && buff.Size() == 0 { // if the program has ended
 			if expectingEnd { // expected no more text
 				done <- CaseReturn{
 					Result: shared.OUTCOME_AC,
@@ -54,7 +54,7 @@ func (grader StrictGrader) CompareStream(session *GradeSession, pid int, expecte
 			} else { // did not finish giving full answer
 				done <- CaseReturn{
 					Result: shared.OUTCOME_WA,
-					ResultInfo: "Ended early",
+					ResultInfo: "Ended early (program exit)",
 				}
 			}
 			break
@@ -68,7 +68,7 @@ func (grader StrictGrader) CompareStream(session *GradeSession, pid int, expecte
 		c, _, err := buff.ReadRune()
 		if err != nil {
 			shared.Debug("readrune: " + err.Error())
-			if err != io.EOF {
+			if true /*err != io.EOF*/ {
 				if expectingEnd { // expected no more text
 					done <- CaseReturn{
 						Result: shared.OUTCOME_AC,
@@ -88,7 +88,7 @@ func (grader StrictGrader) CompareStream(session *GradeSession, pid int, expecte
 
 		// if wrong character or expecting no output
 		// ignore new line at end
-		if (expectingEnd && c != '\n') || (ansIndex < len(ans) && c != ans[ansIndex]) {
+		if !(expectingEnd && c == '\n') && ((expectingEnd && c != '\n') || (ansIndex < len(ans) && c != ans[ansIndex])) {
 			done <- CaseReturn{
 				Result:     shared.OUTCOME_WA,
 				ResultInfo: "Wrong char",

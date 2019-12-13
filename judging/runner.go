@@ -151,6 +151,7 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 			if result.Result != shared.OUTCOME_AC {
 				batchFailed = true
 			}
+
 		}
 	}
 
@@ -166,13 +167,13 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 
 }
 
-func JudgeCase(caseNum uint64, batchNum uint64, session *shared.JudgeSession, res chan shared.JudgeStatus, batchCase *pb.ProblemBatchCase) pb.TestCaseResult {
+func JudgeCase(batchNum uint64, caseNum uint64, session *shared.JudgeSession, res chan shared.JudgeStatus, batchCase *pb.ProblemBatchCase) pb.TestCaseResult {
 	batchRes := make(chan pb.TestCaseResult)
 
 	// do judging
 	gradingSession := GradeSession{
-		CaseNum: caseNum,
-		BatchNum: batchNum,
+		CaseNum: 		caseNum,
+		BatchNum: 		batchNum,
 		JudgingSession: session,
 		Problem:        session.OriginalRequest.Solution.Problem,
 		Solution:       session.OriginalRequest.Solution,
