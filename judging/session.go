@@ -143,6 +143,7 @@ func (session *GradeSession) StartJudging() {
 		// must run on this thread because all ptrace calls have to come from one thread
 		tracer.Trace()
 	} else {
+		session.CloseStreams()
 		session.WaitVerdict()
 	}
 
@@ -243,7 +244,7 @@ func (session *GradeSession) CloseStreams() {
 		session.OutputStream.Close()
 	}
 	/*if session.OutputBuffer != nil {
-		session.OutputBuffer.Close()
+		session.OutputBuffer.Close() NO
 	}*/
 	if session.ErrorStream != nil {
 		session.ErrorStream.Close()
