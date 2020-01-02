@@ -11,6 +11,9 @@ var (
 	TESTING_DIR string
 	DEBUG		bool
 	SANDBOX		bool
+
+	TasksToBeDone = new(uint64)
+	TasksInQueue = new(uint64)
 )
 
 const (

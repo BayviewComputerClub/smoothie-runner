@@ -2,6 +2,15 @@ syntax = "proto3";
 
 service SmoothieRunnerAPI {
     rpc TestSolution(stream TestSolutionRequest) returns (stream TestSolutionResponse) {}
+    rpc Health(Empty) returns (ServiceHealth) {}
+}
+
+message Empty {}
+
+message ServiceHealth {
+    uint64 numOfTasksToBeDone = 1; // total number of tasks to be done
+    uint64 numOfTasksInQueue = 2; // number of tasks in queue (not judging yet)
+    uint64 numOfWorkers = 3; // number of workers configured
 }
 
 // testing requests

@@ -20,6 +20,14 @@ var (
 
 type SmoothieRunnerAPI struct{}
 
+func (runner *SmoothieRunnerAPI) Health(empty pb.Empty) pb.ServiceHealth {
+	return pb.ServiceHealth{
+		NumOfTasksToBeDone: *shared.TasksToBeDone,
+		NumOfTasksInQueue:  *shared.TasksInQueue,
+		NumOfWorkers:       uint64(shared.MAX_THREADS),
+	}
+}
+
 func (runner *SmoothieRunnerAPI) TestSolution(stream pb.SmoothieRunnerAPI_TestSolutionServer) error {
 	// receive initial request with data
 	req, err := stream.Recv()
