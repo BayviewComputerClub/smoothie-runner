@@ -25,8 +25,8 @@ type JudgeJob struct {
 
 // add a judging job to queue
 func AddToQueue(job JudgeJob) {
-	atomic.AddUint64(shared.TasksToBeDone, 1)
-	atomic.AddUint64(shared.TasksInQueue, 1)
+	atomic.AddInt64(shared.TasksToBeDone, 1)
+	atomic.AddInt64(shared.TasksInQueue, 1)
 	workQueue <- job
 }
 
@@ -34,11 +34,11 @@ func AddToQueue(job JudgeJob) {
 func StartQueueWorker(num int) {
 	for {
 		job := <-workQueue
-		atomic.AddUint64(shared.TasksInQueue, -1)
+		atomic.AddInt64(shared.TasksInQueue, -1)
 		util.Info(fmt.Sprintf("Worker %d has picked up job for %s in %s.", num, job.Req.Solution.Problem.ProblemID, job.Req.Solution.Language))
 
 		TestSolution(job.Req, job.Res, job.Cancelled)
-		atomic.AddUint64(shared.TasksToBeDone, -1)
+		atomic.AddInt64(shared.TasksToBeDone, -1)
 		util.Info(fmt.Sprintf("Worker %v has completed job %v in %v", num, job.Req.Solution.Problem.ProblemID, job.Req.Solution.Language))
 	}
 }

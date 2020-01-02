@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/BayviewComputerClub/smoothie-runner/judging"
 	pb "github.com/BayviewComputerClub/smoothie-runner/protocol"
@@ -20,12 +21,12 @@ var (
 
 type SmoothieRunnerAPI struct{}
 
-func (runner *SmoothieRunnerAPI) Health(empty pb.Empty) pb.ServiceHealth {
-	return pb.ServiceHealth{
-		NumOfTasksToBeDone: *shared.TasksToBeDone,
-		NumOfTasksInQueue:  *shared.TasksInQueue,
+func (runner *SmoothieRunnerAPI) Health(ctx context.Context, empty *pb.Empty) (*pb.ServiceHealth, error) {
+	return &pb.ServiceHealth{
+		NumOfTasksToBeDone: uint64(*shared.TasksToBeDone),
+		NumOfTasksInQueue:  uint64(*shared.TasksInQueue),
 		NumOfWorkers:       uint64(shared.MAX_THREADS),
-	}
+	}, nil
 }
 
 func (runner *SmoothieRunnerAPI) TestSolution(stream pb.SmoothieRunnerAPI_TestSolutionServer) error {

@@ -12,8 +12,8 @@ var (
 	DEBUG		bool
 	SANDBOX		bool
 
-	TasksToBeDone = new(uint64)
-	TasksInQueue = new(uint64)
+	TasksToBeDone = new(int64)
+	TasksInQueue = new(int64)
 )
 
 const (
