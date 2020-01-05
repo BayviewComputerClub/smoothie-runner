@@ -84,6 +84,7 @@ func (runner *SmoothieRunnerAPI) TestSolution(stream pb.SmoothieRunnerAPI_TestSo
 			err = stream.Send(&s.Res)
 			if err != nil {
 				util.Warn(err.Error())
+				isCancelled = true
 				return err
 			}
 
