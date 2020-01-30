@@ -32,7 +32,6 @@ type GradeSession struct {
 	CaseNum uint64
 
 	// streams during judging
-	OutputBuffer *os.File
 	ErrorBuffer  *os.File
 	OutputStream *os.File
 	ErrorStream  *os.File
@@ -59,19 +58,10 @@ type GradeSession struct {
  */
 
 func (session *GradeSession) InitStreams() {
-	// init input
-	session.StartInput()
+
+	session.InitIOFiles()
 
 	var err error
-	// stdout buffer
-
-	session.OutputBuffer, session.OutputStream, err = os.Pipe()
-	if err != nil {
-		util.Warn("stdoutpipeinit: " + err.Error())
-		session.StreamResult <- pb.TestCaseResult{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
-		return
-	}
-
 	// stderr buffer
 	session.ErrorBuffer, session.ErrorStream, err = os.Pipe()
 	if err != nil {
@@ -85,24 +75,39 @@ func (session *GradeSession) InitStreams() {
  * Initializes input stream
  */
 
-func (session *GradeSession) StartInput() {
+func (session *GradeSession) InitIOFiles() {
+	name := strconv.FormatInt(time.Now().Unix(), 10)
 
-	// possibly use fake file instead so code can't access
-	inputFileLoc := session.JudgingSession.Workspace + "/" + strconv.FormatInt(time.Now().Unix(), 10) + ".in"
-	err := ioutil.WriteFile(inputFileLoc, []byte(session.CurrentBatch.Input), 0644)
+	outputFileLoc := session.JudgingSession.Workspace + "/" + name + ".out"
+	inputFileLoc := session.JudgingSession.Workspace + "/" + name + ".in"
+
+	err := ioutil.WriteFile(outputFileLoc, []byte(""), 0644)
+	if err != nil {
+		util.Warn("outputstream: " + err.Error())
+		session.StreamResult <- pb.TestCaseResult{Result: shared.OUTCOME_ISE, ResultInfo: ""}
+		return
+	}
+	err = ioutil.WriteFile(inputFileLoc, []byte(session.CurrentBatch.Input), 0644)
 	if err != nil {
 		util.Warn("inputstream: " + err.Error())
 		session.StreamResult <- pb.TestCaseResult{Result: shared.OUTCOME_ISE, ResultInfo: ""}
 		return
 	}
-	inputFile, err := os.Open(inputFileLoc)
+
+	session.OutputStream, err = os.Open(outputFileLoc)
+	if err != nil {
+		util.Warn("outputstream: " + err.Error())
+		session.StreamResult <- pb.TestCaseResult{Result: shared.OUTCOME_ISE, ResultInfo: ""}
+		return
+	}
+
+	session.InputStream, err = os.Open(inputFileLoc)
 	if err != nil {
 		util.Warn("inputstream: " + err.Error())
 		session.StreamResult <- pb.TestCaseResult{Result: shared.OUTCOME_ISE, ResultInfo: ""}
 		return
 	}
-	//session.Command.Stdin = inputFile
-	session.InputStream = inputFile
+
 }
 
 /*
@@ -187,8 +192,8 @@ func (session *GradeSession) WaitTLE() {
 
 func (session *GradeSession) WaitVerdict() {
 	defer func() { // prevent buffer from closing too early
-		if session.OutputBuffer != nil {
-			session.OutputBuffer.Close()
+		if session.ErrorBuffer != nil {
+			session.ErrorBuffer.Close()
 		}
 	}()
 
@@ -249,9 +254,9 @@ func (session *GradeSession) CloseStreams() {
 	if session.ErrorStream != nil {
 		session.ErrorStream.Close()
 	}
-	if session.ErrorBuffer != nil {
-		session.ErrorBuffer.Close()
-	}
+	//if session.ErrorBuffer != nil {
+	//	session.ErrorBuffer.Close()
+	//}
 	if session.InputStream != nil {
 		session.InputStream.Close()
 	}

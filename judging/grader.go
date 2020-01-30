@@ -40,7 +40,7 @@ func StartGrader(session *GradeSession, pid int, expectedAnswer *string, done ch
 type StrictGrader struct {}
 
 func (grader StrictGrader) CompareStream(session *GradeSession, pid int, expectedAnswer *string, done chan CaseReturn) {
-	buff := bufio.NewReader(session.OutputBuffer)
+	buff := bufio.NewReader(session.OutputStream)
 	expectingEnd := false
 	ansIndex := 0
 	ans := []rune(strings.ReplaceAll(*expectedAnswer, "\r", ""))
@@ -111,7 +111,7 @@ func (grader StrictGrader) CompareStream(session *GradeSession, pid int, expecte
 type EndTrimGrader struct {}
 
 func (grader EndTrimGrader) CompareStream(session *GradeSession, pid int, expectedAnswer *string, done chan CaseReturn) {
-	buff := bufio.NewReader(session.OutputBuffer)
+	buff := bufio.NewReader(session.OutputStream)
 
 	expectedScanner := bufio.NewScanner(strings.NewReader(*expectedAnswer))
 	expectedScanner.Scan()
