@@ -133,8 +133,10 @@ func (session *GradeSession) StartJudging() {
 	defer session.CloseStreams()
 
 	proc.ForkExec()
+
 	session.Pid = proc.Pid
 	session.StartTime = time.Now()
+
 	go session.WaitProcState()
 	go StartGrader(session)
 	go session.ListenStderr()

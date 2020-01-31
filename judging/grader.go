@@ -43,9 +43,14 @@ type StrictGrader struct {}
 func (grader StrictGrader) CompareStream(session *GradeSession, expectedAnswer *string, done chan CaseReturn) {
 	// wait until program finishes running, or error is returned
 	select {
-	case <- done: return
-	case <- session.StreamProcEnd: break
+	case <-done:
+		return
+	case <-session.StreamProcEnd:
+		break
 	}
+
+	// move index for reading the file to beginning
+	session.OutputStream.Seek(0, 0)
 
 	// read from output stream
 	buff := bufio.NewReader(session.OutputStream)
@@ -54,20 +59,6 @@ func (grader StrictGrader) CompareStream(session *GradeSession, expectedAnswer *
 	ans := []rune(strings.ReplaceAll(*expectedAnswer, "\r", ""))
 
 	for {
-		if buff.Buffered() == 0 || buff.Size() == 0 { // if the buffer is empty
-			if expectingEnd { // expected no more text
-				done <- CaseReturn{
-					Result: shared.OUTCOME_AC,
-				}
-			} else { // did not finish giving full answer
-				done <- CaseReturn{
-					Result: shared.OUTCOME_WA,
-					ResultInfo: "Ended early (program exit)",
-				}
-			}
-			break
-		}
-
 		c, _, err := buff.ReadRune()
 		if err != nil {
 			shared.Debug("readrune: " + err.Error())

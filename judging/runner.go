@@ -187,6 +187,7 @@ func JudgeCase(batchNum uint64, caseNum uint64, session *shared.JudgeSession, re
 		ExitCode:       0,
 		StreamResult:   batchRes,
 		StreamDone:     make(chan CaseReturn),
+		StreamProcEnd:  make(chan bool),
 		Command:        session.RunCommand,
 		ExecCommand:    session.CommandFd,
 		ExecArgs:       uintptr(unsafe.Pointer(&session.CommandArgs)),
