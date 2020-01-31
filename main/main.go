@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	VERSION = "v0.9-testing"
+	VERSION = "v0.9.99-testing"
 )
 
 func getEnv(key string, def string) string {
@@ -41,6 +41,7 @@ func init() {
 	}
 	shared.DEBUG = getEnv("DEBUG", "false") == "true"
 	shared.SANDBOX = getEnv("SANDBOX", "true") == "true"
+	shared.CLEANUP_SESSIONS = getEnv("CLEANUP_SESSIONS", "true") == "true"
 }
 
 // entry point

@@ -25,7 +25,7 @@ func (adapter Java11Adapter) Compile(session shared.JudgeSession) (*exec.Cmd, er
 		return nil, errors.New(strings.ReplaceAll(string(output), session.Workspace+"/Main.java", ""))
 	}
 
-	c := exec.Command("/usr/bin/java", "Main")
+	c := exec.Command("/usr/bin/java", "Main", "-d64", "-Xmx300MB")
 	c.Dir = session.Workspace
 	return c, nil
 }

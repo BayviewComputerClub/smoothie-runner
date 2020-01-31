@@ -79,7 +79,9 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 	}
 
 	// remove workspace when exit
-	defer os.RemoveAll(session.Workspace)
+	if shared.CLEANUP_SESSIONS {
+		defer os.RemoveAll(session.Workspace)
+	}
 
 	// create session workspace
 	err := os.Mkdir(session.Workspace, 0755)

@@ -50,7 +50,7 @@ func (grader StrictGrader) CompareStream(session *GradeSession, expectedAnswer *
 	}
 
 	// move index for reading the file to beginning
-	session.OutputStream.Seek(0, 0)
+	_, _ = session.OutputStream.Seek(0, 0)
 
 	// read from output stream
 	buff := bufio.NewReader(session.OutputStream)

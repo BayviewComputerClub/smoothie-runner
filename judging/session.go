@@ -208,6 +208,7 @@ func (session *GradeSession) WaitProcState() {
 			return
 		case wstatus.Signaled():
 			sig := wstatus.Signal()
+			session.ExitCode = int(wstatus.Signal())
 			switch sig {
 			case unix.SIGXCPU, unix.SIGKILL:
 				session.StreamDone <- CaseReturn{Result: shared.OUTCOME_TLE}

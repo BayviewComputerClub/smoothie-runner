@@ -11,6 +11,7 @@ var (
 	TESTING_DIR string
 	DEBUG		bool
 	SANDBOX		bool
+	CLEANUP_SESSIONS bool
 
 	TasksToBeDone = new(int64)
 	TasksInQueue = new(int64)

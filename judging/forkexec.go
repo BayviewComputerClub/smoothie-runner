@@ -120,7 +120,20 @@ func (proc *ForkProcess) ForkExec() {
 		return
 	}
 
-	// sync
+	// set resource limits
+	err = proc.SetRlimits()
+	if err != nil {
+		forkLeaveError(pipe, err)
+		return
+	}
+
+	err = unix.Prctl(unix.PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)
+	if err != nil {
+		forkLeaveError(pipe, err)
+		return
+	}
+
+	// sync with parent
 	err2 = 0
 	r1, _, err1 = syscall.RawSyscall(syscall.SYS_WRITE, uintptr(pipe), uintptr(unsafe.Pointer(&err2)), unsafe.Sizeof(err2))
 	if r1 == 0 || err1 != 0 {
@@ -134,7 +147,7 @@ func (proc *ForkProcess) ForkExec() {
 		return
 	}
 
-	// TODO rlimits
+
 	// TODO change working dir
 	// TODO seccomp
 
