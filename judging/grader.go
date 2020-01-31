@@ -24,7 +24,7 @@ type Grader interface {
 }
 
 func StartGrader(session *GradeSession) {
-	if grader, ok := graders[session.JudgingSession.OriginalRequest.Solution.Problem.Grader.Type]; ok {
+	if grader, ok := graders[session.JudgingSession.OriginalRequest.Problem.Grader.Type]; ok {
 		grader.CompareStream(session, &session.CurrentBatch.ExpectedAnswer, session.StreamDone)
 	} else {
 		session.StreamDone <- CaseReturn{

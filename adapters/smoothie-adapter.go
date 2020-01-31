@@ -8,7 +8,7 @@ import (
 
 type SmoothieAdapter interface {
 	GetName() string
-	Compile(session shared.JudgeSession) (*exec.Cmd, error) // return command in the workspace
+	Compile(session *shared.JudgeSession) (*exec.Cmd, error) // return command in the workspace
 }
 
 var (
@@ -25,7 +25,7 @@ func init() {
 	adapters["python3"] = Python3Adapter{}
 }
 
-func CompileAndGetRunCommand(session shared.JudgeSession) (*exec.Cmd, error) {
+func CompileAndGetRunCommand(session *shared.JudgeSession) (*exec.Cmd, error) {
 	if adapters[session.Language] == nil {
 		return nil, errors.New("language not supported (" + session.Language + ")")
 	}

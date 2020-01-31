@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func CppHelper(session shared.JudgeSession, std string) (*exec.Cmd, error) {
+func CppHelper(session *shared.JudgeSession, std string) (*exec.Cmd, error) {
 
 	err := ioutil.WriteFile(session.Workspace + "/main.cpp", []byte(session.Code), 0644)
 	if err != nil {
@@ -33,7 +33,7 @@ func (adapter Cpp98Adapter) GetName() string {
 	return "c++98"
 }
 
-func (adapter Cpp98Adapter) Compile(session shared.JudgeSession) (*exec.Cmd, error) {
+func (adapter Cpp98Adapter) Compile(session *shared.JudgeSession) (*exec.Cmd, error) {
 	return CppHelper(session, "gnu++98")
 }
 
@@ -45,7 +45,7 @@ func (adapter Cpp11Adapter) GetName() string {
 	return "c++11"
 }
 
-func (adapter Cpp11Adapter) Compile(session shared.JudgeSession) (*exec.Cmd, error) {
+func (adapter Cpp11Adapter) Compile(session *shared.JudgeSession) (*exec.Cmd, error) {
 	return CppHelper(session, "gnu++11")
 }
 
@@ -57,7 +57,7 @@ func (adapter Cpp14Adapter) GetName() string {
 	return "c++14"
 }
 
-func (adapter Cpp14Adapter) Compile(session shared.JudgeSession) (*exec.Cmd, error) {
+func (adapter Cpp14Adapter) Compile(session *shared.JudgeSession) (*exec.Cmd, error) {
 	return CppHelper(session, "gnu++14")
 }
 
@@ -69,7 +69,7 @@ func (adapter Cpp17Adapter) GetName() string {
 	return "c++17"
 }
 
-func (adapter Cpp17Adapter) Compile(session shared.JudgeSession) (*exec.Cmd, error) {
+func (adapter Cpp17Adapter) Compile(session *shared.JudgeSession) (*exec.Cmd, error) {
 	return CppHelper(session, "gnu++17")
 }
 

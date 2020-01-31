@@ -12,13 +12,13 @@ func (adapter Python3Adapter) GetName() string {
 	return "python3"
 }
 
-func (adapter Python3Adapter) Compile(session shared.JudgeSession) (*exec.Cmd, error) {
+func (adapter Python3Adapter) Compile(session *shared.JudgeSession) (*exec.Cmd, error) {
 	err := ioutil.WriteFile(session.Workspace + "/main.py", []byte(session.Code), 0644)
 	if err != nil {
 		return nil, err
 	}
 
-	c := exec.Command("/usr/bin/python3", "main.py")
+	c := exec.Command("python3", "main.py")
 	c.Dir = session.Workspace
 	return c, nil
 }

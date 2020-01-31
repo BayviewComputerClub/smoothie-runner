@@ -28,6 +28,7 @@ type GradeSession struct {
 	Problem *pb.Problem
 	Solution *pb.Solution
 	CurrentBatch *pb.ProblemBatchCase
+	Limit *shared.Rlimits
 
 	BatchNum uint64
 	CaseNum uint64
@@ -182,7 +183,7 @@ func (session *GradeSession) WaitProcState() {
 
 		// check tle
 		t := time.Now()
-		if t.After(session.StartTime.Add(time.Duration(session.CurrentBatch.TimeLimit*1e9))) {
+		if session.Limit.CpuTime != 0 && t.After(session.StartTime.Add(time.Duration(session.Limit.CpuTime*1e9))) {
 			shared.Debug("TLE")
 			session.StreamDone <- CaseReturn{Result: shared.OUTCOME_TLE}
 			return
@@ -193,7 +194,7 @@ func (session *GradeSession) WaitProcState() {
 
 		// check memory
 		// maxrss - KB, memlimit - MB
-		if rusage.Maxrss > int64(session.CurrentBatch.MemLimit*1000) {
+		if session.Limit.Memory != 0 && rusage.Maxrss > int64(session.Limit.Memory*1000) {
 			shared.Debug("MLE")
 			session.StreamDone <- CaseReturn{Result: shared.OUTCOME_MLE}
 			return

@@ -16,15 +16,15 @@ message ServiceHealth {
 // testing requests
 
 message TestSolutionRequest {
-    Solution solution = 1;
-    bool testBatchEvenIfFailed = 2; // test all cases in batch even if one failed
-    bool cancelTesting = 3; // cancel the entire operation
+    Problem problem = 1;
+    Solution solution = 2;
+    bool testBatchEvenIfFailed = 3; // test all cases in batch even if one failed
+    bool cancelTesting = 4; // cancel the entire operation
 }
 
 message Solution {
-    Problem problem = 1;
-    string language = 2;
-    string code = 3;
+    string language = 1;
+    string code = 2;
 }
 
 message Problem {
@@ -32,6 +32,8 @@ message Problem {
     string problemID = 2;
     uint64 testCasesHashCode = 3; // hash of testBatches, to update cache if need be
     ProblemGrader grader = 4;
+    double timeLimit = 5;
+    double memLimit = 6;
 }
 
 message ProblemGrader {
@@ -46,8 +48,6 @@ message ProblemBatch {
 message ProblemBatchCase {
     string input = 1; // test data
     string expectedAnswer = 2;
-    double timeLimit = 3;
-    double memLimit = 4;
 }
 
 // server test responses

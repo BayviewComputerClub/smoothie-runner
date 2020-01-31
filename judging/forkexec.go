@@ -13,19 +13,19 @@ import (
 
 var empty = [...]byte{0}
 
-func prepareExec(Args, Env []string) (*byte, []*byte, []*byte, error) {
+func prepareExec(args, env []string) (*byte, []*byte, []*byte, error) {
 	// make exec args0
-	argv0, err := syscall.BytePtrFromString(Args[0])
+	argv0, err := syscall.BytePtrFromString(args[0])
 	if err != nil {
 		return nil, nil, nil, err
 	}
 	// make exec args
-	argv, err := syscall.SlicePtrFromStrings(Args)
+	argv, err := syscall.SlicePtrFromStrings(args)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 	// make env
-	envv, err := syscall.SlicePtrFromStrings(Env)
+	envv, err := syscall.SlicePtrFromStrings(env)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -38,7 +38,7 @@ func (proc *ForkProcess) ForkExec() {
 		r1 uintptr
 	)
 
-	_, argv, envv, err := prepareExec(proc.Session.Command.Args, []string{})
+	_, argv, envv, err := prepareExec(proc.Session.Command.Args, proc.Session.Command.Env)
 	if err != nil {
 		util.Warn("forkexec prepareexec: " + err.Error())
 		proc.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
@@ -106,6 +106,13 @@ func (proc *ForkProcess) ForkExec() {
 		return
 	}
 
+	// change workspace
+	err = unix.Chdir(proc.Session.Command.Dir)
+	if err != nil {
+		forkLeaveError(pipe, err)
+		return
+	}
+
 	// set stdin, stdout, stderr file descriptors
 	if err := unix.Dup2(int(proc.Session.InputStream.Fd()), 0) ; err != nil {
 		forkLeaveError(pipe, err)
@@ -147,8 +154,6 @@ func (proc *ForkProcess) ForkExec() {
 		return
 	}
 
-
-	// TODO change working dir
 	// TODO seccomp
 
 	// execute process, now replaced by new process

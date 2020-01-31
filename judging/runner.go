@@ -35,11 +35,11 @@ func StartQueueWorker(num int) {
 	for {
 		job := <-workQueue
 		atomic.AddInt64(shared.TasksInQueue, -1)
-		util.Info(fmt.Sprintf("Worker %d has picked up job for %s in %s.", num, job.Req.Solution.Problem.ProblemID, job.Req.Solution.Language))
+		util.Info(fmt.Sprintf("Worker %d has picked up job for %s in %s.", num, job.Req.Problem.ProblemID, job.Req.Solution.Language))
 
 		TestSolution(job.Req, job.Res, job.Cancelled)
 		atomic.AddInt64(shared.TasksToBeDone, -1)
-		util.Info(fmt.Sprintf("Worker %v has completed job %v in %v", num, job.Req.Solution.Problem.ProblemID, job.Req.Solution.Language))
+		util.Info(fmt.Sprintf("Worker %v has completed job %v in %v", num, job.Req.Problem.ProblemID, job.Req.Solution.Language))
 	}
 }
 
@@ -76,6 +76,11 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 		Code:            req.Solution.Code,
 		Language:        req.Solution.Language,
 		OriginalRequest: req,
+		Limit:			 shared.Rlimits{
+			CpuTime: uint64(req.Problem.TimeLimit), // only second precision :/
+			Fsize:   1e9, // 1e9 bytes -> 1 gigabyte
+			Memory:  uint64(req.Problem.MemLimit*1e6), // MB -> bytes
+		},
 	}
 
 	// remove workspace when exit
@@ -90,7 +95,7 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 	}
 
 	// attempt to compile user submitted code
-	session.RunCommand, err = adapters.CompileAndGetRunCommand(session)
+	session.RunCommand, err = adapters.CompileAndGetRunCommand(&session)
 	if err != nil {
 		// send compile error back
 		res <- shared.JudgeStatus{
@@ -123,7 +128,7 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 	}
 
 	// loop over test batches and cases
-	for i, batch := range req.Solution.Problem.TestBatches {
+	for i, batch := range req.Problem.TestBatches {
 
 		shared.Debug(fmt.Sprintf("Batch #%v", i))
 
@@ -182,8 +187,9 @@ func JudgeCase(batchNum uint64, caseNum uint64, session *shared.JudgeSession, re
 		CaseNum: 		caseNum,
 		BatchNum: 		batchNum,
 		JudgingSession: session,
-		Problem:        session.OriginalRequest.Solution.Problem,
+		Problem:        session.OriginalRequest.Problem,
 		Solution:       session.OriginalRequest.Solution,
+		Limit: 			&session.Limit,
 		CurrentBatch:   batchCase,
 		Stderr:         "",
 		ExitCode:       0,
