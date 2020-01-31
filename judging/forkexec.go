@@ -134,6 +134,7 @@ func (proc *ForkProcess) ForkExec() {
 		return
 	}
 
+	// for seccomp
 	err = unix.Prctl(unix.PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)
 	if err != nil {
 		forkLeaveError(pipe, err)
@@ -154,7 +155,21 @@ func (proc *ForkProcess) ForkExec() {
 		return
 	}
 
-	// TODO seccomp
+	if shared.SANDBOX {
+		// ptrace
+		//_, _, err1 = unix.RawSyscall(unix.SYS_PTRACE, uintptr(unix.PTRACE_TRACEME), 0, 0)
+		//if err1 != 0 {
+		//	forkLeaveError(pipe, err1)
+		//	return
+		//}
+
+		// seccomp
+		err = proc.LoadSeccompFilter()
+		if err != nil {
+			forkLeaveError(pipe, err)
+			return
+		}
+	}
 
 	// execute process, now replaced by new process
 	_, _, err1 = syscall.RawSyscall6(unix.SYS_EXECVEAT, proc.ExecCommand, uintptr(unsafe.Pointer(&empty[0])), uintptr(unsafe.Pointer(&argv[0])), uintptr(unsafe.Pointer(&envv[0])), unix.AT_EMPTY_PATH, 0)

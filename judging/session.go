@@ -164,13 +164,15 @@ func (session *GradeSession) ListenStderr() {
 	}
 }
 
+/*
+ * Use wait4 to check child process state.
+ */
+
 func (session *GradeSession) WaitProcState() {
 	var (
 		wstatus unix.WaitStatus
 	    rusage unix.Rusage
 		)
-
-	// TODO proc timeout
 
 	for {
 		// wait for process change state
