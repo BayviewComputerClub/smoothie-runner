@@ -32,16 +32,16 @@ func prepareExec(Args, Env []string) (*byte, []*byte, []*byte, error) {
 	return argv0, argv, envv, nil
 }
 
-func (tracer *PTracer) ForkExec() {
+func (proc *ForkProcess) ForkExec() {
 	var (
 		err1, err2 unix.Errno
 		r1 uintptr
 	)
 
-	_, argv, envv, err := prepareExec(tracer.Session.Command.Args, []string{})
+	_, argv, envv, err := prepareExec(proc.Session.Command.Args, []string{})
 	if err != nil {
 		util.Warn("forkexec prepareexec: " + err.Error())
-		tracer.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
+		proc.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
 		return
 	}
 
@@ -49,7 +49,7 @@ func (tracer *PTracer) ForkExec() {
 	p, err := syscall.Socketpair(syscall.AF_LOCAL, syscall.SOCK_STREAM|syscall.SOCK_CLOEXEC, 0)
 	if err != nil {
 		util.Warn("forkexec socketpair: " + err.Error())
-		tracer.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
+		proc.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
 		return
 	}
 
@@ -58,16 +58,15 @@ func (tracer *PTracer) ForkExec() {
 	syscall.ForkLock.Lock()
 
 	pid, _, err1 := unix.Syscall6(syscall.SYS_CLONE, uintptr(unix.SIGCHLD), 0, 0, 0, 0, 0)
-	if err1 != 0 || pid != 0 {
-		syscall.ForkLock.Unlock()
 
-		// in parent process
+	if err1 != 0 || pid != 0 { // in parent process
+		syscall.ForkLock.Unlock()
 
 		unix.Close(p[1])
 
 		if err1 != 0 {
 			util.Warn("forkexec clone: " + err.Error())
-			tracer.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
+			proc.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
 			return
 		}
 
@@ -83,13 +82,12 @@ func (tracer *PTracer) ForkExec() {
 			}
 			handleChildFailed(pid)
 			util.Warn("forkexec execread: " + err.Error())
-			tracer.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
+			proc.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
 			return
 		}
+		syscall.RawSyscall(syscall.SYS_WRITE, uintptr(p[0]), uintptr(unsafe.Pointer(&err1)), unsafe.Sizeof(err1))
 
-		syscall.RawSyscall(syscall.SYS_WRITE, uintptr(p[0]), uintptr(unsafe.Pointer(&err1)), unsafe.Sizeof((err1)))
-
-		tracer.Pid = int(pid)
+		proc.Pid = int(pid)
 		return
 	}
 
@@ -109,15 +107,15 @@ func (tracer *PTracer) ForkExec() {
 	}
 
 	// set stdin, stdout, stderr file descriptors
-	if err := unix.Dup2(int(tracer.Session.InputStream.Fd()), 0) ; err != nil {
+	if err := unix.Dup2(int(proc.Session.InputStream.Fd()), 0) ; err != nil {
 		forkLeaveError(pipe, err)
 		return
 	}
-	if err := unix.Dup2(int(tracer.Session.OutputStream.Fd()), 1) ; err != nil {
+	if err := unix.Dup2(int(proc.Session.OutputStream.Fd()), 1) ; err != nil {
 		forkLeaveError(pipe, err)
 		return
 	}
-	if err := unix.Dup2(int(tracer.Session.ErrorStream.Fd()), 2) ; err != nil {
+	if err := unix.Dup2(int(proc.Session.ErrorStream.Fd()), 2) ; err != nil {
 		forkLeaveError(pipe, err)
 		return
 	}
@@ -136,28 +134,20 @@ func (tracer *PTracer) ForkExec() {
 		return
 	}
 
-	if shared.SANDBOX {
-		_, _, err1 = syscall.RawSyscall(syscall.SYS_PTRACE, uintptr(syscall.PTRACE_TRACEME), 0, 0)
-		if err1 != 0 {
-			forkLeaveError(pipe, err1)
-			return
-		}
-	}
-
+	// TODO rlimits
 	// TODO change working dir
+	// TODO seccomp
 
-	// execute process
-	_, _, err1 = syscall.RawSyscall6(unix.SYS_EXECVEAT, tracer.ExecCommand, uintptr(unsafe.Pointer(&empty[0])), uintptr(unsafe.Pointer(&argv[0])), uintptr(unsafe.Pointer(&envv[0])), unix.AT_EMPTY_PATH, 0)
-
-	for {
-		syscall.RawSyscall(syscall.SYS_EXIT, uintptr(err1+err2), 0, 0)
-	}
-	// cannot reach this point
+	// execute process, now replaced by new process
+	_, _, err1 = syscall.RawSyscall6(unix.SYS_EXECVEAT, proc.ExecCommand, uintptr(unsafe.Pointer(&empty[0])), uintptr(unsafe.Pointer(&argv[0])), uintptr(unsafe.Pointer(&envv[0])), unix.AT_EMPTY_PATH, 0)
 }
 
 func forkLeaveError(pipe int, err error) {
 	util.Warn("child: " + err.Error())
 	syscall.RawSyscall(unix.SYS_WRITE, uintptr(pipe), uintptr(unsafe.Pointer(&err)), unsafe.Sizeof(err))
+	for {
+		unix.Exit(0)
+	}
 }
 
 func handleChildFailed(pid uintptr) {

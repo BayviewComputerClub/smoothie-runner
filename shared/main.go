@@ -26,6 +26,7 @@ const (
 	OUTCOME_ILL = "ILL" // illegal operation
 	OUTCOME_ISE = "ISE" // internal server error
 	OUTCOME_SKIP = "SKIP" // skipped judging
+	OUTCOME_OLE = "OLE" // output limit exceeded
 )
 
 type JudgeStatus struct {
