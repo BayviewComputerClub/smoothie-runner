@@ -1,11 +1,20 @@
 syntax = "proto3";
 
 service SmoothieRunnerAPI {
-    rpc TestSolution(stream TestSolutionRequest) returns (stream TestSolutionResponse) {}
-    rpc Health(Empty) returns (ServiceHealth) {}
+    rpc GetProblemTestDataHash(string) returns (string) // parameter (problemId), returns hash or "" if does not exist
+    rpc UploadProblemTestData(stream UploadTestDataRequest) returns (string) // returns error
+    rpc TestSolution(stream TestSolutionRequest) returns (stream TestSolutionResponse)
+    rpc Health(Empty) returns (ServiceHealth)
 }
 
 message Empty {}
+
+message UploadTestDataRequest {
+    bytes dataChunk = 1; // part of test-data.proto
+    string problemId = 2;
+    string testDataHash = 3;
+    bool finishedUploading = 4; // sent as last message of stream
+}
 
 message ServiceHealth {
     uint64 numOfTasksToBeDone = 1; // total number of tasks to be done
@@ -28,26 +37,16 @@ message Solution {
 }
 
 message Problem {
-    repeated ProblemBatch testBatches = 1;
-    string problemID = 2;
-    uint64 testCasesHashCode = 3; // hash of testBatches, to update cache if need be
-    ProblemGrader grader = 4;
-    double timeLimit = 5;
-    double memLimit = 6;
+    string problemId = 1;
+    string testDataHash = 2; // hash of testBatches, to update cache if need be
+    ProblemGrader grader = 3;
+    double timeLimit = 4;
+    double memLimit = 5;
 }
 
 message ProblemGrader {
     string type = 1;
     string customCode = 2;
-}
-
-message ProblemBatch {
-    repeated ProblemBatchCase cases = 1;
-}
-
-message ProblemBatchCase {
-    string input = 1; // test data
-    string expectedAnswer = 2;
 }
 
 // server test responses
@@ -56,6 +55,7 @@ message TestSolutionResponse {
     TestCaseResult testCaseResult = 1;
     bool completedTesting = 2; // if the testing has completed (even on failure)
     string compileError = 3; // the compile error if there is one
+    bool testDataNeedUpload = 4; // whether the test data needs to be uploaded first
 }
 
 message TestCaseResult {

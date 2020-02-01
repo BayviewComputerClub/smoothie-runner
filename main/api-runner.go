@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/BayviewComputerClub/smoothie-runner/judging"
-	pb "github.com/BayviewComputerClub/smoothie-runner/protocol"
+	pb "github.com/BayviewComputerClub/smoothie-runner/protocol/runner"
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
 	"github.com/BayviewComputerClub/smoothie-runner/util"
 	"google.golang.org/grpc"
