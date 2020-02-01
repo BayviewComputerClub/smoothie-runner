@@ -1,7 +1,7 @@
 package shared
 
 import (
-	pb "github.com/BayviewComputerClub/smoothie-runner/protocol"
+	pb "github.com/BayviewComputerClub/smoothie-runner/protocol/runner"
 	"os/exec"
 )
 

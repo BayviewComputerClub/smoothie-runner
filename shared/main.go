@@ -1,37 +1,38 @@
 package shared
 
 import (
-	pb "github.com/BayviewComputerClub/smoothie-runner/protocol"
+	pb "github.com/BayviewComputerClub/smoothie-runner/protocol/runner"
 	"time"
 )
 
 var (
-	PORT int
-	MAX_THREADS int
-	TESTING_DIR string
-	DEBUG		bool
-	SANDBOX		bool
+	PORT             int
+	MAX_THREADS      int
+	TESTING_DIR      string
+	CACHE_DIR        string
+	DEBUG            bool
+	SANDBOX          bool
 	CLEANUP_SESSIONS bool
 
 	TasksToBeDone = new(int64)
-	TasksInQueue = new(int64)
+	TasksInQueue  = new(int64)
 )
 
 const (
-	OUTCOME_AC  = "AC"  // answer correct
-	OUTCOME_WA  = "WA"  // wrong answer
-	OUTCOME_RTE = "RTE" // run time error
-	OUTCOME_CE  = "CE"  // compile error
-	OUTCOME_TLE = "TLE" // time limit exceeded
-	OUTCOME_MLE = "MLE" // memory limit exceeded
-	OUTCOME_ILL = "ILL" // illegal operation
-	OUTCOME_ISE = "ISE" // internal server error
+	OUTCOME_AC   = "AC"   // answer correct
+	OUTCOME_WA   = "WA"   // wrong answer
+	OUTCOME_RTE  = "RTE"  // run time error
+	OUTCOME_CE   = "CE"   // compile error
+	OUTCOME_TLE  = "TLE"  // time limit exceeded
+	OUTCOME_MLE  = "MLE"  // memory limit exceeded
+	OUTCOME_ILL  = "ILL"  // illegal operation
+	OUTCOME_ISE  = "ISE"  // internal server error
 	OUTCOME_SKIP = "SKIP" // skipped judging
-	OUTCOME_OLE = "OLE" // output limit exceeded
+	OUTCOME_OLE  = "OLE"  // output limit exceeded
 )
 
 type JudgeStatus struct {
-	Err error // any possible errors
+	Err error                   // any possible errors
 	Res pb.TestSolutionResponse // response to send back
 }
 
