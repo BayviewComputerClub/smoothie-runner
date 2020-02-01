@@ -79,6 +79,7 @@ var (
 			"time",
 			"clock_gettime",
 			"restart_syscall",
+
 		},
 		SyscallTrace: []string{
 			// execute file

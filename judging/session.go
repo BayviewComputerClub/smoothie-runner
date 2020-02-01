@@ -135,23 +135,24 @@ func (session *GradeSession) StartJudging() {
 
 	// init pipes
 	session.InitStreams()
-	defer session.CloseStreams()
 
 	proc.ForkExec()
 
 	session.Pid = proc.Pid
 	session.StartTime = time.Now()
 
-	go session.WaitProcState() // track process state
 	go StartGrader(session) // run the grading session
 	go session.ListenStderr() // dump stderr to session
 
+	// wait for done channel to be used
+	go session.WaitVerdict()
+
 	if shared.SANDBOX {
-		go proc.Trace() // start tracer
+		proc.Trace() // start tracer
+	} else {
+		session.WaitProcState() // track process state without tracer
 	}
 
-	// wait for done channel to be used
-	session.WaitVerdict()
 }
 
 /*
@@ -173,6 +174,54 @@ func (session *GradeSession) ListenStderr() {
 	}
 }
 
+// returns true when process ends
+func (session *GradeSession) CheckProcState(wstatus *unix.WaitStatus, rusage *unix.Rusage) bool {
+
+	// check tle
+	t := time.Now()
+	if session.Limit.CpuTime != 0 && t.After(session.StartTime.Add(time.Duration(session.Limit.CpuTime*1e9))) {
+		shared.Debug("TLE")
+		session.StreamDone <- CaseReturn{Result: shared.OUTCOME_TLE}
+		return true
+	}
+
+	// update memory usage
+	session.MemoryUsage = math.Max(session.MemoryUsage, float64(rusage.Maxrss)/1000)
+
+	// check memory
+	// maxrss - KB, memlimit - MB
+	if session.Limit.Memory != 0 && rusage.Maxrss > int64(session.Limit.Memory*1000) {
+		shared.Debug("MLE")
+		session.StreamDone <- CaseReturn{Result: shared.OUTCOME_MLE}
+		return true
+	}
+
+	switch {
+	case wstatus.Exited(): // program exit
+		session.ExitCode = wstatus.ExitStatus()
+		// send exit status to grader
+		// grader is expected to send to session.StreamDone when finished grading
+		session.StreamProcEnd <- true
+		return true
+	case wstatus.Signaled():
+		sig := wstatus.Signal()
+		session.ExitCode = int(wstatus.Signal())
+		switch sig {
+		case unix.SIGXCPU, unix.SIGKILL:
+			session.StreamDone <- CaseReturn{Result: shared.OUTCOME_TLE}
+		case unix.SIGXFSZ:
+			session.StreamDone <- CaseReturn{Result: shared.OUTCOME_OLE}
+		case unix.SIGSYS:
+			session.StreamDone <- CaseReturn{Result: shared.OUTCOME_ILL}
+		default:
+			session.StreamDone <- CaseReturn{Result: shared.OUTCOME_RTE}
+		}
+		return true
+	}
+
+	return false
+}
+
 /*
  * Use wait4 to check child process state.
  */
@@ -180,8 +229,8 @@ func (session *GradeSession) ListenStderr() {
 func (session *GradeSession) WaitProcState() {
 	var (
 		wstatus unix.WaitStatus
-	    rusage unix.Rusage
-		)
+		rusage unix.Rusage
+	)
 
 	for {
 		// wait for process change state
@@ -192,48 +241,9 @@ func (session *GradeSession) WaitProcState() {
 			session.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
 		}
 
-		// check tle
-		t := time.Now()
-		if session.Limit.CpuTime != 0 && t.After(session.StartTime.Add(time.Duration(session.Limit.CpuTime*1e9))) {
-			shared.Debug("TLE")
-			session.StreamDone <- CaseReturn{Result: shared.OUTCOME_TLE}
+		if session.CheckProcState(&wstatus, &rusage) {
 			return
 		}
-
-		// update memory usage
-		session.MemoryUsage = math.Max(session.MemoryUsage, float64(rusage.Maxrss)/1000)
-
-		// check memory
-		// maxrss - KB, memlimit - MB
-		if session.Limit.Memory != 0 && rusage.Maxrss > int64(session.Limit.Memory*1000) {
-			shared.Debug("MLE")
-			session.StreamDone <- CaseReturn{Result: shared.OUTCOME_MLE}
-			return
-		}
-
-		switch {
-		case wstatus.Exited(): // program exit
-			session.ExitCode = wstatus.ExitStatus()
-			// send exit status to grader
-			// grader is expected to send to session.StreamDone when finished grading
-			session.StreamProcEnd <- true
-			return
-		case wstatus.Signaled():
-			sig := wstatus.Signal()
-			session.ExitCode = int(wstatus.Signal())
-			switch sig {
-			case unix.SIGXCPU, unix.SIGKILL:
-				session.StreamDone <- CaseReturn{Result: shared.OUTCOME_TLE}
-			case unix.SIGXFSZ:
-				session.StreamDone <- CaseReturn{Result: shared.OUTCOME_OLE}
-			case unix.SIGSYS:
-				session.StreamDone <- CaseReturn{Result: shared.OUTCOME_ILL}
-			default:
-				session.StreamDone <- CaseReturn{Result: shared.OUTCOME_RTE}
-			}
-			return
-		}
-
 	}
 }
 
@@ -242,6 +252,7 @@ func (session *GradeSession) WaitProcState() {
  */
 
 func (session *GradeSession) WaitVerdict() {
+	defer session.CloseStreams()
 	defer func() { // prevent buffer from closing too early
 		if session.ErrorBuffer != nil {
 			session.ErrorBuffer.Close()

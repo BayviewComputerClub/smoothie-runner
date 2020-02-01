@@ -1,10 +1,10 @@
 package judging
 
 import (
+	"fmt"
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
 	"github.com/BayviewComputerClub/smoothie-runner/util"
 	"golang.org/x/sys/unix"
-	"runtime"
 	"strconv"
 )
 
@@ -33,15 +33,6 @@ func (proc *ForkProcess) Syscall() bool {
 
 // start tracer
 func (proc *ForkProcess) Trace() {
-	runtime.LockOSThread() // https://github.com/golang/go/issues/7699
-	defer runtime.UnlockOSThread()
-
-	defer func() {
-		if err := recover(); err != nil {
-			util.Warn("panic in tracer")
-		}
-		proc.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: "panic in tracer"}
-	}()
 
 	var err error
 
@@ -52,15 +43,19 @@ func (proc *ForkProcess) Trace() {
 		return
 	}
 
-	// set ptrace options
-	var ws unix.WaitStatus
+	var (
+		ws unix.WaitStatus
+		rusage unix.Rusage
+		)
 
-	_, err = unix.Wait4(-proc.Pgid, &ws, unix.WALL, nil)
+	// init tracing
+	pid, err := unix.Wait4(-proc.Pgid, &ws, unix.WALL, nil)
 	if err != nil {
-		util.Warn("wait4: " + err.Error())
+		util.Warn("wait4 error: " + err.Error())
 		proc.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
 		return
 	}
+	shared.Debug(fmt.Sprintf("wait4: pickup ptrace %v %v", ws.Stopped(), pid))
 
 	err = unix.PtraceSetOptions(proc.Pid, unix.PTRACE_O_TRACESECCOMP|unix.PTRACE_O_EXITKILL|unix.PTRACE_O_TRACEFORK|unix.PTRACE_O_TRACECLONE|unix.PTRACE_O_TRACEEXEC|unix.PTRACE_O_TRACEVFORK)
 	if err != nil {
@@ -69,15 +64,23 @@ func (proc *ForkProcess) Trace() {
 		return
 	}
 
+	unix.PtraceCont(pid, int(ws.StopSignal())) // restart process
+
 	// trace each syscall
 	for {
 		pid, err := unix.Wait4(-proc.Pgid, &ws, unix.WALL, nil)
 		if err != nil {
-			util.Warn("wait4: " + err.Error())
+			util.Warn("wait4 error: " + err.Error())
 			proc.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
 			return
 		}
 
+		// check judging
+		if proc.Session.CheckProcState(&ws, &rusage) {
+			return
+		}
+
+		// check process status
 		switch {
 		case ws.Exited():
 			shared.Debug("tracer: process exited with " + strconv.Itoa(ws.ExitStatus()))
@@ -96,7 +99,7 @@ func (proc *ForkProcess) Trace() {
 				switch ws.TrapCause() {
 				case unix.PTRACE_EVENT_SECCOMP:
 					shared.Debug("ptrace trap event_seccomp")
-					err := handleTrap(pid, proc)
+					err := handleTrap(pid, proc) // handle syscall
 					if err != nil {
 						proc.StreamDone <- CaseReturn{Result: shared.OUTCOME_ILL, ResultInfo: err.Error()}
 						return

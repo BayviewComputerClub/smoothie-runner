@@ -85,9 +85,12 @@ func (proc *ForkProcess) ForkExec() {
 			proc.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
 			return
 		}
-		syscall.RawSyscall(syscall.SYS_WRITE, uintptr(p[0]), uintptr(unsafe.Pointer(&err1)), unsafe.Sizeof(err1))
+		unix.RawSyscall(syscall.SYS_WRITE, uintptr(p[0]), uintptr(unsafe.Pointer(&err1)), unsafe.Sizeof(err1))
 
 		proc.Pid = int(pid)
+		unix.Close(p[0])
+		// TODO read error
+
 		return
 	}
 
@@ -147,10 +150,16 @@ func (proc *ForkProcess) ForkExec() {
 		forkLeaveError(pipe, err1)
 		return
 	}
-
 	if shared.SANDBOX {
 		// ptrace
 		_, _, err1 = unix.RawSyscall(unix.SYS_PTRACE, uintptr(unix.PTRACE_TRACEME), 0, 0)
+		if err1 != 0 {
+			forkLeaveError(pipe, err1)
+			return
+		}
+
+		// wait for tracer
+		_,_, err1 = unix.RawSyscall(unix.SYS_KILL, pid, uintptr(unix.SIGSTOP), 0)
 		if err1 != 0 {
 			forkLeaveError(pipe, err1)
 			return
@@ -162,6 +171,7 @@ func (proc *ForkProcess) ForkExec() {
 			forkLeaveError(pipe, err)
 			return
 		}
+
 	}
 
 	// execute process, now replaced by new process
