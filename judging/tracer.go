@@ -88,7 +88,7 @@ func (proc *ForkProcess) Trace() {
 
 		// check judging
 		if proc.Session.CheckProcState(&ws, &rusage) {
-			if !proc.Session.DoneSent {
+			if !proc.Session.DoneSent && !proc.Session.StreamProcEndSent{
 				// this is currently a bug
 				// sometimes the receiving goroutine doesn't receive the message until i add another message into the queue
 				proc.Session.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE}

@@ -43,10 +43,11 @@ type GradeSession struct {
 	Stderr   string // error dumped here
 	ExitCode int
 
-	StreamResult  chan pb.TestCaseResult // return result to runner
-	StreamDone    chan CaseReturn        // end batch case with verdict
-	StreamProcEnd chan bool              // wait until the process has stopped running
-	DoneSent      bool                   // whether or not the done channel was used
+	StreamResult      chan pb.TestCaseResult // return result to runner
+	StreamDone        chan CaseReturn        // end batch case with verdict
+	StreamProcEnd     chan bool              // wait until the process has stopped running
+	DoneSent          bool                   // whether or not the done channel was used
+	StreamProcEndSent bool                   // whether or not the streamprocend channel was used
 
 	Pid         int
 	MemoryUsage float64
@@ -151,7 +152,7 @@ func (session *GradeSession) StartJudging() {
 	go session.Timeout()
 
 	if shared.SANDBOX {
-		proc.Trace() // start tracer
+		proc.Trace() // start tracer (must be called in same thread that forkexeced)
 	} else {
 		session.WaitProcState() // track process state without tracer
 	}
@@ -159,7 +160,7 @@ func (session *GradeSession) StartJudging() {
 }
 
 func (session *GradeSession) Timeout() {
-	time.Sleep(time.Duration(session.Problem.TimeLimit) * time.Second * 2 + 10*time.Second)
+	time.Sleep(time.Duration(session.Problem.TimeLimit)*time.Second*2 + 10*time.Second)
 	if !session.DoneSent {
 		session.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: "timeout"}
 	}
@@ -212,6 +213,7 @@ func (session *GradeSession) CheckProcState(wstatus *unix.WaitStatus, rusage *un
 		// send exit status to grader
 		// grader is expected to send to session.StreamDone when finished grading
 		session.StreamProcEnd <- true
+		session.StreamProcEndSent = true
 		return true
 	case wstatus.Signaled():
 		sig := wstatus.Signal()
@@ -225,6 +227,7 @@ func (session *GradeSession) CheckProcState(wstatus *unix.WaitStatus, rusage *un
 			session.StreamDone <- CaseReturn{Result: shared.OUTCOME_ILL}
 		default:
 			session.StreamDone <- CaseReturn{Result: shared.OUTCOME_RTE}
+			session.StreamDone <- CaseReturn{Result: shared.OUTCOME_RTE} // yikes
 		}
 		return true
 	}

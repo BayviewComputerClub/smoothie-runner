@@ -29,6 +29,7 @@ var (
 			"/usr/lib":                       true,
 			"/usr/lib64":                     true,
 			"/lib":                           true,
+			"/usr/local/lib":                           true,
 		},
 		AllowWrite: map[string]bool{
 			"/dev/null": true,
@@ -82,6 +83,7 @@ var (
 			"time",
 			"clock_gettime",
 			"restart_syscall",
+			"futex", // todo
 		},
 		SyscallTrace: []string{
 			// execute file
@@ -109,4 +111,50 @@ var (
 	}
 
 	// compiler profile
+	SANDBOX_COMPILER_PROFILE = SandboxProfile{
+		AllowRead:    map[string]bool{
+			"./": true,
+			"../runtime/": true,
+			"/etc/oracle/java/usagetracker.properties": true,
+			"/usr/": true,
+			"/lib/": true,
+			"/lib64/": true,
+			"/bin/": true,
+			"/sbin/": true,
+			"/sys/devices/system/cpu/": true,
+			"/proc/": true,
+			"/etc/timezone": true,
+			"/etc/fpc-2.6.2.cfg.d/": true,
+			"/etc/fpc.cfg": true,
+		},
+		AllowWrite:   map[string]bool{
+			"/tmp/": true,
+			"./": true,
+		},
+		SyscallAllow: append(SANDBOX_DEFAULT_PROFILE.SyscallAllow, []string{
+			"gettid", "set_tid_address", "set_robust_list", "futex",
+			"getpid", "vfork", "fork", "clone", "execve", "wait4",
+			"clock_gettime", "clock_getres",
+			"setrlimit", "pipe",
+			"getdents64", "getdents",
+			"umask", "rename", "chmod", "mkdir",
+			"chdir", "fchdir",
+			"ftruncate",
+			"sched_getaffinity", "sched_yield",
+			"uname", "sysinfo",
+			"prlimit64", "getrandom",
+			"fchmodat",
+		}...),
+		SyscallTrace: SANDBOX_DEFAULT_PROFILE.SyscallTrace,
+	}
+
 )
+
+func init() {
+	for k, v := range SANDBOX_DEFAULT_PROFILE.AllowRead {
+		SANDBOX_COMPILER_PROFILE.AllowRead[k] = v
+	}
+	for k, v := range SANDBOX_DEFAULT_PROFILE.AllowWrite {
+		SANDBOX_COMPILER_PROFILE.AllowRead[k] = v
+	}
+}
