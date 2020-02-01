@@ -4,8 +4,8 @@ type SandboxProfile struct {
 	AllowRead  map[string]bool
 	AllowWrite map[string]bool
 
-	SyscallAllow map[string]bool
-	SyscallTrace map[string]bool // restricted calls
+	SyscallAllow []string
+	SyscallTrace []string // restricted calls
 }
 
 // "inspired" by https://github.com/criyle/go-sandbox/tree/master/config
@@ -30,78 +30,78 @@ var (
 		AllowWrite: map[string]bool{
 			"/dev/null": true,
 		},
-		SyscallAllow: map[string]bool{
+		SyscallAllow: []string{
 			// file access through fd
-			"read": true,
-			"write": true,
-			"readv": true,
-			"writev": true,
-			"close": true,
-			"fstat": true,
-			"lseek": true,
-			"dup": true,
-			"dup2": true,
-			"dup3": true,
-			"ioctl": true,
-			"fcntl": true,
-			"fadvise64": true,
+			"read",
+			"write",
+			"readv",
+			"writev",
+			"close",
+			"fstat",
+			"lseek",
+			"dup",
+			"dup2",
+			"dup3",
+			"ioctl",
+			"fcntl",
+			"fadvise64",
 
 			// memory action
-			"mmap": true,
-			"mprotect": true,
-			"munmap": true,
-			"brk": true,
-			"mremap": true,
-			"msync": true,
-			"mincore": true,
-			"madvise": true,
+			"mmap",
+			"mprotect",
+			"munmap",
+			"brk",
+			"mremap",
+			"msync",
+			"mincore",
+			"madvise",
 
 			// signal action
-			"rt_sigaction": true,
-			"rt_sigprocmask": true,
-			"rt_sigreturn": true,
-			"rt_sigpending": true,
-			"sigaltstack": true,
+			"rt_sigaction",
+			"rt_sigprocmask",
+			"rt_sigreturn",
+			"rt_sigpending",
+			"sigaltstack",
 
 			// get current work dir
-			"getcwd": true,
+			"getcwd",
 
 			// process exit
-			"exit": true,
-			"exit_group": true,
+			"exit",
+			"exit_group",
 
 			// others
-			"arch_prctl": true,
-			"gettimeofday": true,
-			"getrlimit": true,
-			"getrusage": true,
-			"times": true,
-			"time": true,
-			"clock_gettime": true,
-			"restart_syscall": true,
+			"arch_prctl",
+			"gettimeofday",
+			"getrlimit",
+			"getrusage",
+			"times",
+			"time",
+			"clock_gettime",
+			"restart_syscall",
 		},
-		SyscallTrace: map[string]bool{
+		SyscallTrace: []string{
 			// execute file
-			"execve": true,
-			"execveat": true,
+			"execve",
+			"execveat",
 
 			// file open
-			"open": true,
-			"openat": true,
+			"open",
+			"openat",
 
 			// file delete
-			"unlink": true,
-			"unlinkat": true,
+			"unlink",
+			"unlinkat",
 
 			// soft link
-			"readlink": true,
-			"readlinkat": true,
+			"readlink",
+			"readlinkat",
 
 			// permission check
-			"lstat": true,
-			"stat": true,
-			"access": true,
-			"faccessat": true,
+			"lstat",
+			"stat",
+			"access",
+			"faccessat",
 		},
 	}
 

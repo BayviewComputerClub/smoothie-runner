@@ -4,8 +4,8 @@ import (
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
 	"github.com/BayviewComputerClub/smoothie-runner/util"
 	"golang.org/x/sys/unix"
-	"math"
 	"runtime"
+	"strconv"
 )
 
 // process that is sandboxed
@@ -19,30 +19,6 @@ type ForkProcess struct {
 
 	ExecCommand uintptr
 	ExecArgs uintptr
-}
-
-func (proc *ForkProcess) Wait4() bool {
-	// initialize and get status
-	var ws unix.WaitStatus
-	wpid, err := unix.Wait4(-1*proc.Pgid, &ws, unix.WALL, nil)
-	if err != nil {
-		util.Warn("wait4: " + err.Error())
-		proc.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
-		return true
-	}
-
-	if wpid == -1 {
-		util.Warn("wpid = -1")
-		proc.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: "wpid = -1"}
-		return true
-	}
-
-	// if process stopped, leave
-	// waitprocstate will report updated condition
-	if isStopSignal(ws.StopSignal()) || ws.Exited() {
-		return true
-	}
-	return false
 }
 
 func (proc *ForkProcess) Syscall() bool {
@@ -60,6 +36,13 @@ func (proc *ForkProcess) Trace() {
 	runtime.LockOSThread() // https://github.com/golang/go/issues/7699
 	defer runtime.UnlockOSThread()
 
+	defer func() {
+		if err := recover(); err != nil {
+			util.Warn("panic in tracer")
+		}
+		proc.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: "panic in tracer"}
+	}()
+
 	var err error
 
 	proc.Pgid, err = unix.Getpgid(proc.Pid)
@@ -69,44 +52,77 @@ func (proc *ForkProcess) Trace() {
 		return
 	}
 
-	proc.Wait4()
+	// set ptrace options
+	var ws unix.WaitStatus
 
-	err = unix.PtraceSetOptions(proc.Pid, unix.PTRACE_O_EXITKILL|unix.PTRACE_O_TRACESYSGOOD|unix.PTRACE_O_TRACEEXIT|unix.PTRACE_O_TRACECLONE|unix.PTRACE_O_TRACEFORK|unix.PTRACE_O_TRACEVFORK)
+	_, err = unix.Wait4(-proc.Pgid, &ws, unix.WALL, nil)
+	if err != nil {
+		util.Warn("wait4: " + err.Error())
+		proc.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
+		return
+	}
+
+	err = unix.PtraceSetOptions(proc.Pid, unix.PTRACE_O_TRACESECCOMP|unix.PTRACE_O_EXITKILL|unix.PTRACE_O_TRACEFORK|unix.PTRACE_O_TRACECLONE|unix.PTRACE_O_TRACEEXEC|unix.PTRACE_O_TRACEVFORK)
 	if err != nil {
 		util.Warn("ptracesetoptions: " + err.Error())
 		proc.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
 		return
 	}
 
-	for { // scan through each syscall
-		if proc.Syscall() {
-			return
-		}
-		if proc.Wait4() {
-			return
-		}
-
-		// get system call
-		pregs := unix.PtraceRegs{} // user regs struct
-		err = unix.PtraceGetRegs(proc.Pid, &pregs)
+	// trace each syscall
+	for {
+		pid, err := unix.Wait4(-proc.Pgid, &ws, unix.WALL, nil)
 		if err != nil {
-			util.Warn("ptracegetregs: " + err.Error())
+			util.Warn("wait4: " + err.Error())
 			proc.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
 			return
 		}
 
-		// map syscall to nothing if syscall is blockedCall
-		blockedCall := blockRestrictedCalls(&pregs, proc.Pid)
+		switch {
+		case ws.Exited():
+			shared.Debug("tracer: process exited with " + strconv.Itoa(ws.ExitStatus()))
+			return
 
-		// run system call
-		if proc.Syscall() {
-			return
-		}
-		if proc.Wait4() {
-			return
-		}
-		if blockedCall {
-			pregs.Rax = uint64(math.Inf(0))
+		case ws.Signaled():
+			err := unix.PtraceCont(pid, int(ws.Signal()))
+			if err != nil {
+				util.Warn("ptracecont signaled: " + err.Error())
+				proc.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
+				return
+			}
+
+		case ws.Stopped():
+			if ws.StopSignal() == unix.SIGTRAP {
+				switch ws.TrapCause() {
+				case unix.PTRACE_EVENT_SECCOMP:
+					shared.Debug("ptrace trap event_seccomp")
+					err := handleTrap(pid, proc)
+					if err != nil {
+						proc.StreamDone <- CaseReturn{Result: shared.OUTCOME_ILL, ResultInfo: err.Error()}
+						return
+					}
+				}
+				err = unix.PtraceCont(pid, 0)
+			} else {
+
+				switch ws.StopSignal() {
+				case unix.SIGXCPU:
+					proc.StreamDone <- CaseReturn{Result: shared.OUTCOME_TLE}
+					return
+				case unix.SIGXFSZ:
+					proc.StreamDone <- CaseReturn{Result: shared.OUTCOME_OLE}
+					return
+				}
+
+				err = unix.PtraceCont(pid, int(ws.StopSignal()))
+			}
+
+			if err != nil {
+				util.Warn("ptracecont signaled: " + err.Error())
+				proc.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
+				return
+			}
+
 		}
 	}
 
