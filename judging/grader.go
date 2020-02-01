@@ -19,14 +19,15 @@ func init() {
 }
 
 type Grader interface {
-	CompareStream(session *GradeSession, pid int, expectedAnswer *string, done chan CaseReturn)
+	// must wait on session.StreamProcEnd and send output to done
+	CompareStream(session *GradeSession, expectedAnswer *string, done chan CaseReturn)
 }
 
-func StartGrader(session *GradeSession, pid int, expectedAnswer *string, done chan CaseReturn) {
-	if grader, ok := graders[session.JudgingSession.OriginalRequest.Solution.Problem.Grader.Type]; ok {
-		grader.CompareStream(session, pid, expectedAnswer, done)
+func StartGrader(session *GradeSession) {
+	if grader, ok := graders[session.JudgingSession.OriginalRequest.Problem.Grader.Type]; ok {
+		grader.CompareStream(session, &session.CurrentBatch.ExpectedAnswer, session.StreamDone)
 	} else {
-		done <- CaseReturn{
+		session.StreamDone <- CaseReturn{
 			Result:     shared.OUTCOME_ISE,
 			ResultInfo: "Grader not found.",
 		}
@@ -39,32 +40,25 @@ func StartGrader(session *GradeSession, pid int, expectedAnswer *string, done ch
 
 type StrictGrader struct {}
 
-func (grader StrictGrader) CompareStream(session *GradeSession, pid int, expectedAnswer *string, done chan CaseReturn) {
-	buff := bufio.NewReader(session.OutputBuffer)
+func (grader StrictGrader) CompareStream(session *GradeSession, expectedAnswer *string, done chan CaseReturn) {
+	// wait until program finishes running, or error is returned
+	select {
+	case <-done:
+		return
+	case <-session.StreamProcEnd:
+		break
+	}
+
+	// move index for reading the file to beginning
+	_, _ = session.OutputStream.Seek(0, 0)
+
+	// read from output stream
+	buff := bufio.NewReader(session.OutputStream)
 	expectingEnd := false
 	ansIndex := 0
 	ans := []rune(strings.ReplaceAll(*expectedAnswer, "\r", ""))
 
 	for {
-		if !util.IsPidRunning(pid) && buff.Buffered() == 0 && buff.Size() == 0 { // if the program has ended
-			if expectingEnd { // expected no more text
-				done <- CaseReturn{
-					Result: shared.OUTCOME_AC,
-				}
-			} else { // did not finish giving full answer
-				done <- CaseReturn{
-					Result: shared.OUTCOME_WA,
-					ResultInfo: "Ended early (program exit)",
-				}
-			}
-			break
-		}
-
-		// is the buffer empty
-		if buff.Size() == 0 {
-			continue
-		}
-
 		c, _, err := buff.ReadRune()
 		if err != nil {
 			shared.Debug("readrune: " + err.Error())
@@ -110,8 +104,8 @@ func (grader StrictGrader) CompareStream(session *GradeSession, pid int, expecte
 
 type EndTrimGrader struct {}
 
-func (grader EndTrimGrader) CompareStream(session *GradeSession, pid int, expectedAnswer *string, done chan CaseReturn) {
-	buff := bufio.NewReader(session.OutputBuffer)
+func (grader EndTrimGrader) CompareStream(session *GradeSession, expectedAnswer *string, done chan CaseReturn) {
+	buff := bufio.NewReader(session.OutputStream)
 
 	expectedScanner := bufio.NewScanner(strings.NewReader(*expectedAnswer))
 	expectedScanner.Scan()
@@ -131,7 +125,7 @@ func (grader EndTrimGrader) CompareStream(session *GradeSession, pid int, expect
 
 	// loop through to read rune by rune
 	for {
-		if !util.IsPidRunning(pid) { // possibly should move this after all runes are read
+		if !util.IsPidRunning(session.Pid) { // possibly should move this after all runes are read
 			if expectingEnd { // expected no more text
 				done <- CaseReturn{
 					Result: shared.OUTCOME_AC,

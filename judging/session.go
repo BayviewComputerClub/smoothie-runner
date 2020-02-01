@@ -8,6 +8,7 @@ import (
 	"github.com/BayviewComputerClub/smoothie-runner/util"
 	"golang.org/x/sys/unix"
 	"io/ioutil"
+	"math"
 	"os"
 	"os/exec"
 	"runtime"
@@ -17,22 +18,22 @@ import (
 )
 
 type CaseReturn struct {
-	Result string
+	Result     string
 	ResultInfo string
 }
 
 type GradeSession struct {
 	JudgingSession *shared.JudgeSession
 
-	Problem *pb.Problem
-	Solution *pb.Solution
+	Problem      *pb.Problem
+	Solution     *pb.Solution
 	CurrentBatch *pb.ProblemBatchCase
+	Limit        *shared.Rlimits
 
 	BatchNum uint64
-	CaseNum uint64
+	CaseNum  uint64
 
 	// streams during judging
-	OutputBuffer *os.File
 	ErrorBuffer  *os.File
 	OutputStream *os.File
 	ErrorStream  *os.File
@@ -42,16 +43,22 @@ type GradeSession struct {
 	Stderr   string // error dumped here
 	ExitCode int
 
-	StreamResult chan pb.TestCaseResult // return result to runner
-	StreamDone chan CaseReturn // end batch case with verdict
-	StreamDoneUsed bool
-	StartTime time.Time
+	StreamResult  chan pb.TestCaseResult // return result to runner
+	StreamDone    chan CaseReturn        // end batch case with verdict
+	StreamProcEnd chan bool              // wait until the process has stopped running
+	DoneSent      bool                   // whether or not the done channel was used
 
-	Command *exec.Cmd
+	Pid         int
+	MemoryUsage float64
+	StartTime   time.Time
+
+	// for forkexec
+	Command     *exec.Cmd
 	ExecCommand uintptr
-	ExecArgs uintptr
+	ExecArgs    uintptr
 
-	Pid int
+	// seccomp & ptrace
+	SandboxProfile util.SandboxProfile
 }
 
 /*
@@ -59,19 +66,10 @@ type GradeSession struct {
  */
 
 func (session *GradeSession) InitStreams() {
-	// init input
-	session.StartInput()
+
+	session.InitIOFiles()
 
 	var err error
-	// stdout buffer
-
-	session.OutputBuffer, session.OutputStream, err = os.Pipe()
-	if err != nil {
-		util.Warn("stdoutpipeinit: " + err.Error())
-		session.StreamResult <- pb.TestCaseResult{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
-		return
-	}
-
 	// stderr buffer
 	session.ErrorBuffer, session.ErrorStream, err = os.Pipe()
 	if err != nil {
@@ -85,24 +83,39 @@ func (session *GradeSession) InitStreams() {
  * Initializes input stream
  */
 
-func (session *GradeSession) StartInput() {
+func (session *GradeSession) InitIOFiles() {
+	name := strconv.FormatInt(time.Now().UnixNano(), 10)
 
-	// possibly use fake file instead so code can't access
-	inputFileLoc := session.JudgingSession.Workspace + "/" + strconv.FormatInt(time.Now().Unix(), 10) + ".in"
-	err := ioutil.WriteFile(inputFileLoc, []byte(session.CurrentBatch.Input), 0644)
+	outputFileLoc := session.JudgingSession.Workspace + "/" + name + ".out"
+	inputFileLoc := session.JudgingSession.Workspace + "/" + name + ".in"
+
+	err := ioutil.WriteFile(outputFileLoc, []byte(""), 0644)
+	if err != nil {
+		util.Warn("outputstream: " + err.Error())
+		session.StreamResult <- pb.TestCaseResult{Result: shared.OUTCOME_ISE, ResultInfo: ""}
+		return
+	}
+	err = ioutil.WriteFile(inputFileLoc, []byte(session.CurrentBatch.Input), 0644)
 	if err != nil {
 		util.Warn("inputstream: " + err.Error())
 		session.StreamResult <- pb.TestCaseResult{Result: shared.OUTCOME_ISE, ResultInfo: ""}
 		return
 	}
-	inputFile, err := os.Open(inputFileLoc)
+
+	session.OutputStream, err = os.OpenFile(outputFileLoc, os.O_RDWR, os.ModeAppend) // open with read/write fd
+	if err != nil {
+		util.Warn("outputstream: " + err.Error())
+		session.StreamResult <- pb.TestCaseResult{Result: shared.OUTCOME_ISE, ResultInfo: ""}
+		return
+	}
+
+	session.InputStream, err = os.Open(inputFileLoc)
 	if err != nil {
 		util.Warn("inputstream: " + err.Error())
 		session.StreamResult <- pb.TestCaseResult{Result: shared.OUTCOME_ISE, ResultInfo: ""}
 		return
 	}
-	//session.Command.Stdin = inputFile
-	session.InputStream = inputFile
+
 }
 
 /*
@@ -113,40 +126,43 @@ func (session *GradeSession) StartJudging() {
 	runtime.LockOSThread() // https://github.com/golang/go/issues/7699
 	defer runtime.UnlockOSThread()
 
-	// setup tracer
-	tracer := PTracer{
+	// setup proc
+	proc := ForkProcess{
 		Session:     session,
 		StreamDone:  session.StreamDone,
 		ExecCommand: session.ExecCommand,
 		ExecArgs:    session.ExecArgs,
+		ExecUsed:    false,
 	}
 
 	// init pipes
 	session.InitStreams()
 
-	tracer.ForkExec()
-	session.Pid = tracer.Pid
+	proc.ForkExec()
 
-	// time
+	session.Pid = proc.Pid
 	session.StartTime = time.Now()
-	go session.WaitTLE()
-	go StartGrader(session, session.Pid, &session.CurrentBatch.ExpectedAnswer, session.StreamDone)
-	go session.ListenStderr()
+
+	go StartGrader(session)   // run the grading session
+	go session.ListenStderr() // dump stderr to session
+
+	// wait for done channel to be used
+	go session.WaitVerdict()
+	go session.Timeout()
 
 	if shared.SANDBOX {
-		defer session.CloseStreams()
-
-		// sandbox has to hog the thread, so move receiving to another one
-		go session.WaitVerdict()
-
-		// start sandboxing
-		// must run on this thread because all ptrace calls have to come from one thread
-		tracer.Trace()
+		proc.Trace() // start tracer
 	} else {
-		session.CloseStreams()
-		session.WaitVerdict()
+		session.WaitProcState() // track process state without tracer
 	}
 
+}
+
+func (session *GradeSession) Timeout() {
+	time.Sleep(time.Duration(session.Problem.TimeLimit) * time.Second * 2 + 10*time.Second)
+	if !session.DoneSent {
+		session.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: "timeout"}
+	}
 }
 
 /*
@@ -168,16 +184,76 @@ func (session *GradeSession) ListenStderr() {
 	}
 }
 
-/*
- * Timeout for TLE
- */
+// returns true when process ends
+func (session *GradeSession) CheckProcState(wstatus *unix.WaitStatus, rusage *unix.Rusage) bool {
 
-func (session *GradeSession) WaitTLE() {
-	time.Sleep(time.Duration(session.CurrentBatch.TimeLimit)*time.Second)
-
-	if !session.StreamDoneUsed {
+	// check tle
+	t := time.Now()
+	if session.Limit.CpuTime != 0 && t.After(session.StartTime.Add(time.Duration(session.Limit.CpuTime*1e9))) {
 		shared.Debug("TLE")
 		session.StreamDone <- CaseReturn{Result: shared.OUTCOME_TLE}
+		return true
+	}
+
+	// update memory usage
+	session.MemoryUsage = math.Max(session.MemoryUsage, float64(rusage.Maxrss)/1000)
+
+	// check memory
+	// maxrss - KB, memlimit - MB
+	if session.Limit.Memory != 0 && rusage.Maxrss > int64(session.Limit.Memory*1000) {
+		shared.Debug("MLE")
+		session.StreamDone <- CaseReturn{Result: shared.OUTCOME_MLE}
+		return true
+	}
+
+	switch {
+	case wstatus.Exited(): // program exit
+		session.ExitCode = wstatus.ExitStatus()
+		// send exit status to grader
+		// grader is expected to send to session.StreamDone when finished grading
+		session.StreamProcEnd <- true
+		return true
+	case wstatus.Signaled():
+		sig := wstatus.Signal()
+		session.ExitCode = int(wstatus.Signal())
+		switch sig {
+		case unix.SIGXCPU, unix.SIGKILL:
+			session.StreamDone <- CaseReturn{Result: shared.OUTCOME_TLE}
+		case unix.SIGXFSZ:
+			session.StreamDone <- CaseReturn{Result: shared.OUTCOME_OLE}
+		case unix.SIGSYS:
+			session.StreamDone <- CaseReturn{Result: shared.OUTCOME_ILL}
+		default:
+			session.StreamDone <- CaseReturn{Result: shared.OUTCOME_RTE}
+		}
+		return true
+	}
+
+	return false
+}
+
+/*
+ * Use wait4 to check child process state.
+ */
+
+func (session *GradeSession) WaitProcState() {
+	var (
+		wstatus unix.WaitStatus
+		rusage  unix.Rusage
+	)
+
+	for {
+		// wait for process change state
+		_, err := unix.Wait4(session.Pid, &wstatus, 0, &rusage)
+		println("WAIT4: ", wstatus) // TODO
+		if err != nil {
+			shared.Debug("wait4: " + err.Error())
+			session.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
+		}
+
+		if session.CheckProcState(&wstatus, &rusage) {
+			return
+		}
 	}
 }
 
@@ -186,15 +262,16 @@ func (session *GradeSession) WaitTLE() {
  */
 
 func (session *GradeSession) WaitVerdict() {
+	defer session.CloseStreams()
 	defer func() { // prevent buffer from closing too early
-		if session.OutputBuffer != nil {
-			session.OutputBuffer.Close()
+		if session.ErrorBuffer != nil {
+			session.ErrorBuffer.Close()
 		}
 	}()
 
 	// wait for judging to finish
 	response := <-session.StreamDone
-	session.StreamDoneUsed = true
+	session.DoneSent = true
 
 	// kill process if still running
 	if util.IsPidRunning(session.Pid) {
@@ -205,32 +282,32 @@ func (session *GradeSession) WaitVerdict() {
 	}
 
 	// send result back to runner
-	if response.Result == shared.OUTCOME_WA && session.Stderr != "" { //  if the outcome was wrong answer but there was an error
+	if response.Result != shared.OUTCOME_AC && session.Stderr != "" { //  if the outcome was wrong answer but there was an error
 		session.StreamResult <- pb.TestCaseResult{
-			Result:     shared.OUTCOME_RTE,
-			ResultInfo: session.Stderr,
-			Time:       time.Since(session.StartTime).Seconds(),
-			MemUsage:   0, // TODO
+			Result:      shared.OUTCOME_RTE,
+			ResultInfo:  session.Stderr,
+			Time:        time.Since(session.StartTime).Seconds(),
+			MemUsage:    session.MemoryUsage,
 			BatchNumber: session.BatchNum,
-			CaseNumber: session.CaseNum,
+			CaseNumber:  session.CaseNum,
 		}
-	} else if session.ExitCode != 0 && session.ExitCode != -1 { // if the program did not exit successfully
+	} else if response.Result == shared.OUTCOME_RTE { // if the program did not exit successfully
 		session.StreamResult <- pb.TestCaseResult{
-			Result:     shared.OUTCOME_RTE,
-			ResultInfo: fmt.Sprintf("Exit code: %v: %v", session.ExitCode, session.Stderr),
-			Time:       time.Since(session.StartTime).Seconds(),
-			MemUsage:   0,
+			Result:      shared.OUTCOME_RTE,
+			ResultInfo:  fmt.Sprintf("Exit code: %v: %v", session.ExitCode, session.Stderr),
+			Time:        time.Since(session.StartTime).Seconds(),
+			MemUsage:    session.MemoryUsage,
 			BatchNumber: session.BatchNum,
-			CaseNumber: session.CaseNum,
+			CaseNumber:  session.CaseNum,
 		}
 	} else { // if the program exited successfully
 		session.StreamResult <- pb.TestCaseResult{
-			Result:     response.Result,
-			ResultInfo: response.ResultInfo,
-			Time:       time.Since(session.StartTime).Seconds(),
-			MemUsage:   0, // TODO
+			Result:      response.Result,
+			ResultInfo:  response.ResultInfo,
+			Time:        time.Since(session.StartTime).Seconds(),
+			MemUsage:    session.MemoryUsage,
 			BatchNumber: session.BatchNum,
-			CaseNumber: session.CaseNum,
+			CaseNumber:  session.CaseNum,
 		}
 	}
 }
@@ -243,14 +320,8 @@ func (session *GradeSession) CloseStreams() {
 	if session.OutputStream != nil {
 		session.OutputStream.Close()
 	}
-	/*if session.OutputBuffer != nil {
-		session.OutputBuffer.Close() NO
-	}*/
 	if session.ErrorStream != nil {
 		session.ErrorStream.Close()
-	}
-	if session.ErrorBuffer != nil {
-		session.ErrorBuffer.Close()
 	}
 	if session.InputStream != nil {
 		session.InputStream.Close()

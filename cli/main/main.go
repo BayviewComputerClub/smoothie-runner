@@ -106,24 +106,24 @@ func main() {
 
 	err = stream.Send(&pb.TestSolutionRequest{
 		Solution: &pb.Solution{
-			Problem: &pb.Problem{
-				TestBatches: []*pb.ProblemBatch{{
-					Cases: []*pb.ProblemBatchCase{{
-						Input:          string(input),
-						ExpectedAnswer: string(output),
-						TimeLimit:      *TIME_LIMIT,
-						MemLimit:       *MEM_LIMIT,
-					}},
-				}},
-				ProblemID:         *PROBLEM_ID,
-				TestCasesHashCode: 0,
-				Grader:            &pb.ProblemGrader{
-					Type:       *GRADER,
-					CustomCode: "",
-				},
-			},
 			Language: *LANGUAGE,
 			Code:     string(code),
+		},
+		Problem: &pb.Problem{
+			TestBatches: []*pb.ProblemBatch{{
+				Cases: []*pb.ProblemBatchCase{{
+					Input:          string(input),
+					ExpectedAnswer: string(output),
+				}},
+			}},
+			ProblemID:         *PROBLEM_ID,
+			TestCasesHashCode: 0,
+			Grader:            &pb.ProblemGrader{
+				Type:       *GRADER,
+				CustomCode: "",
+			},
+			TimeLimit:      *TIME_LIMIT,
+			MemLimit:       *MEM_LIMIT,
 		},
 		TestBatchEvenIfFailed: *TEST_BATCH_EVEN_IF_FAILED,
 		CancelTesting:         false,
