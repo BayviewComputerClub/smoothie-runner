@@ -134,13 +134,6 @@ func (proc *ForkProcess) ForkExec() {
 		return
 	}
 
-	// for seccomp
-	err = unix.Prctl(unix.PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)
-	if err != nil {
-		forkLeaveError(pipe, err)
-		return
-	}
-
 	// sync with parent
 	err2 = 0
 	r1, _, err1 = syscall.RawSyscall(syscall.SYS_WRITE, uintptr(pipe), uintptr(unsafe.Pointer(&err2)), unsafe.Sizeof(err2))
@@ -157,14 +150,14 @@ func (proc *ForkProcess) ForkExec() {
 
 	if shared.SANDBOX {
 		// ptrace
-		//_, _, err1 = unix.RawSyscall(unix.SYS_PTRACE, uintptr(unix.PTRACE_TRACEME), 0, 0)
-		//if err1 != 0 {
-		//	forkLeaveError(pipe, err1)
-		//	return
-		//}
+		_, _, err1 = unix.RawSyscall(unix.SYS_PTRACE, uintptr(unix.PTRACE_TRACEME), 0, 0)
+		if err1 != 0 {
+			forkLeaveError(pipe, err1)
+			return
+		}
 
 		// seccomp
-		err = proc.LoadSeccompFilter()
+		err = proc.LoadSeccompFilter() // calls prctl set no privs as well
 		if err != nil {
 			forkLeaveError(pipe, err)
 			return

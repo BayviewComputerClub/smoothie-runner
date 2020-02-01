@@ -5,6 +5,7 @@ import (
 	"github.com/BayviewComputerClub/smoothie-runner/util"
 	"golang.org/x/sys/unix"
 	"math"
+	"runtime"
 )
 
 // process that is sandboxed
@@ -36,20 +37,9 @@ func (proc *ForkProcess) Wait4() bool {
 		return true
 	}
 
-	// check if segfault, or other stuff
-	// http://people.cs.pitt.edu/~alanjawi/cs449/code/shell/UnixSignals.htm
-
-	if isStopSignal(ws.StopSignal()) {
-		proc.Session.ExitCode = int(ws.StopSignal())
-		// this object will be filled in by judge channel
-		proc.StreamDone <- CaseReturn{Result: shared.OUTCOME_RTE, ResultInfo: "",}
-		proc.Kill()
-		return true
-	}
-
-	// if process has already exited, leave
-	if ws.Exited() {
-		proc.Session.ExitCode = int(ws.StopSignal())
+	// if process stopped, leave
+	// waitprocstate will report updated condition
+	if isStopSignal(ws.StopSignal()) || ws.Exited() {
 		return true
 	}
 	return false
@@ -65,7 +55,11 @@ func (proc *ForkProcess) Syscall() bool {
 	return false
 }
 
+// start tracer
 func (proc *ForkProcess) Trace() {
+	runtime.LockOSThread() // https://github.com/golang/go/issues/7699
+	defer runtime.UnlockOSThread()
+
 	var err error
 
 	proc.Pgid, err = unix.Getpgid(proc.Pid)

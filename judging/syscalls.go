@@ -113,16 +113,6 @@ var STOP_SIGNALS = []unix.Signal {
 	unix.SIGXFSZ,
 }
 
-const (
-	LONG_SIZE = 8
-	BUFFER_SIZE = 4096
-
-	// 64 bit registers
-	RBX = 5
-	RCX = 11
-	RDX = 12
-)
-
 func isStopSignal(signal unix.Signal) bool {
 	for _, a := range STOP_SIGNALS {
 		if a == signal {

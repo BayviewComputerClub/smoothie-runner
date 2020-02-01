@@ -46,14 +46,18 @@ type GradeSession struct {
 	StreamResult chan pb.TestCaseResult // return result to runner
 	StreamDone chan CaseReturn // end batch case with verdict
 	StreamProcEnd chan bool // wait until the process has stopped running
+
+	Pid int
+	MemoryUsage float64
 	StartTime time.Time
 
+	// for forkexec
 	Command *exec.Cmd
 	ExecCommand uintptr
 	ExecArgs uintptr
 
-	Pid int
-	MemoryUsage float64
+	// seccomp & ptrace
+	SandboxProfile util.SandboxProfile
 }
 
 /*
@@ -138,10 +142,15 @@ func (session *GradeSession) StartJudging() {
 	session.Pid = proc.Pid
 	session.StartTime = time.Now()
 
-	go session.WaitProcState()
-	go StartGrader(session)
-	go session.ListenStderr()
+	go session.WaitProcState() // track process state
+	go StartGrader(session) // run the grading session
+	go session.ListenStderr() // dump stderr to session
 
+	if shared.SANDBOX {
+		go proc.Trace() // start tracer
+	}
+
+	// wait for done channel to be used
 	session.WaitVerdict()
 }
 
@@ -203,9 +212,9 @@ func (session *GradeSession) WaitProcState() {
 		}
 
 		switch {
-		case wstatus.Exited():
+		case wstatus.Exited(): // program exit
 			session.ExitCode = wstatus.ExitStatus()
-			// send to grader
+			// send exit status to grader
 			// grader is expected to send to session.StreamDone when finished grading
 			session.StreamProcEnd <- true
 			return

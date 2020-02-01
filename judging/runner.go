@@ -184,21 +184,28 @@ func JudgeCase(batchNum uint64, caseNum uint64, session *shared.JudgeSession, re
 
 	// do judging
 	gradingSession := GradeSession{
-		CaseNum: 		caseNum,
-		BatchNum: 		batchNum,
 		JudgingSession: session,
+
 		Problem:        session.OriginalRequest.Problem,
 		Solution:       session.OriginalRequest.Solution,
-		Limit: 			&session.Limit,
 		CurrentBatch:   batchCase,
+		Limit: 			&session.Limit,
+
+		BatchNum: 		batchNum,
+		CaseNum: 		caseNum,
+
 		Stderr:         "",
 		ExitCode:       0,
+
 		StreamResult:   batchRes,
 		StreamDone:     make(chan CaseReturn),
 		StreamProcEnd:  make(chan bool),
+
 		Command:        session.RunCommand,
 		ExecCommand:    session.CommandFd,
 		ExecArgs:       uintptr(unsafe.Pointer(&session.CommandArgs)),
+
+		SandboxProfile: util.SANDBOX_DEFAULT_PROFILE, // TODO
 	}
 	go gradingSession.StartJudging()
 

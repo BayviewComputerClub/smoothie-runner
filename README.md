@@ -11,7 +11,7 @@ smoothie-runner is configured through environment variables, because (¬‿¬)
 * MAX_THREADS - Maximum number of threads that smoothie-runner can utilize for judging
 * TESTING_DIR - The directory that is used for judging sessions
 * DEBUG - Whether or not to enable debug messages
-* SANDBOX - Whether or not to enable sandboxing with ptrace
+* SANDBOX - Whether or not to enable sandboxing with ptrace & seccomp
 
 ## Running
 It is highly recommended to run smoothie-runner in Docker. You can also run it outside of a container, provided that it is on a Linux based operating system (kernel 3.19 or later).
@@ -30,3 +30,6 @@ If you want to compile the program, make sure you have Go 1.13 installed, and th
 $ ./build.sh
 ```
  
+ ## Sandbox
+ The sandbox loads a seccomp filter, which filters syscalls, and lets restricted calls be checked by the parent process with ptrace. 
+ No libseccomp dependency because of https://github.com/elastic/go-seccomp-bpf! (ﾉ◕ヮ◕)ﾉ*:･ﾟ✧
