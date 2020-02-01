@@ -18,20 +18,20 @@ import (
 )
 
 type CaseReturn struct {
-	Result string
+	Result     string
 	ResultInfo string
 }
 
 type GradeSession struct {
 	JudgingSession *shared.JudgeSession
 
-	Problem *pb.Problem
-	Solution *pb.Solution
+	Problem      *pb.Problem
+	Solution     *pb.Solution
 	CurrentBatch *pb.ProblemBatchCase
-	Limit *shared.Rlimits
+	Limit        *shared.Rlimits
 
 	BatchNum uint64
-	CaseNum uint64
+	CaseNum  uint64
 
 	// streams during judging
 	ErrorBuffer  *os.File
@@ -43,18 +43,19 @@ type GradeSession struct {
 	Stderr   string // error dumped here
 	ExitCode int
 
-	StreamResult chan pb.TestCaseResult // return result to runner
-	StreamDone chan CaseReturn // end batch case with verdict
-	StreamProcEnd chan bool // wait until the process has stopped running
+	StreamResult  chan pb.TestCaseResult // return result to runner
+	StreamDone    chan CaseReturn        // end batch case with verdict
+	StreamProcEnd chan bool              // wait until the process has stopped running
+	DoneSent      bool                   // whether or not the done channel was used
 
-	Pid int
+	Pid         int
 	MemoryUsage float64
-	StartTime time.Time
+	StartTime   time.Time
 
 	// for forkexec
-	Command *exec.Cmd
+	Command     *exec.Cmd
 	ExecCommand uintptr
-	ExecArgs uintptr
+	ExecArgs    uintptr
 
 	// seccomp & ptrace
 	SandboxProfile util.SandboxProfile
@@ -131,6 +132,7 @@ func (session *GradeSession) StartJudging() {
 		StreamDone:  session.StreamDone,
 		ExecCommand: session.ExecCommand,
 		ExecArgs:    session.ExecArgs,
+		ExecUsed:    false,
 	}
 
 	// init pipes
@@ -141,11 +143,12 @@ func (session *GradeSession) StartJudging() {
 	session.Pid = proc.Pid
 	session.StartTime = time.Now()
 
-	go StartGrader(session) // run the grading session
+	go StartGrader(session)   // run the grading session
 	go session.ListenStderr() // dump stderr to session
 
 	// wait for done channel to be used
 	go session.WaitVerdict()
+	go session.Timeout()
 
 	if shared.SANDBOX {
 		proc.Trace() // start tracer
@@ -153,6 +156,13 @@ func (session *GradeSession) StartJudging() {
 		session.WaitProcState() // track process state without tracer
 	}
 
+}
+
+func (session *GradeSession) Timeout() {
+	time.Sleep(time.Duration(session.Problem.TimeLimit) * time.Second * 2 + 10*time.Second)
+	if !session.DoneSent {
+		session.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: "timeout"}
+	}
 }
 
 /*
@@ -229,7 +239,7 @@ func (session *GradeSession) CheckProcState(wstatus *unix.WaitStatus, rusage *un
 func (session *GradeSession) WaitProcState() {
 	var (
 		wstatus unix.WaitStatus
-		rusage unix.Rusage
+		rusage  unix.Rusage
 	)
 
 	for {
@@ -261,6 +271,7 @@ func (session *GradeSession) WaitVerdict() {
 
 	// wait for judging to finish
 	response := <-session.StreamDone
+	session.DoneSent = true
 
 	// kill process if still running
 	if util.IsPidRunning(session.Pid) {
@@ -273,30 +284,30 @@ func (session *GradeSession) WaitVerdict() {
 	// send result back to runner
 	if response.Result != shared.OUTCOME_AC && session.Stderr != "" { //  if the outcome was wrong answer but there was an error
 		session.StreamResult <- pb.TestCaseResult{
-			Result:     shared.OUTCOME_RTE,
-			ResultInfo: session.Stderr,
-			Time:       time.Since(session.StartTime).Seconds(),
-			MemUsage:   session.MemoryUsage,
+			Result:      shared.OUTCOME_RTE,
+			ResultInfo:  session.Stderr,
+			Time:        time.Since(session.StartTime).Seconds(),
+			MemUsage:    session.MemoryUsage,
 			BatchNumber: session.BatchNum,
-			CaseNumber: session.CaseNum,
+			CaseNumber:  session.CaseNum,
 		}
 	} else if response.Result == shared.OUTCOME_RTE { // if the program did not exit successfully
 		session.StreamResult <- pb.TestCaseResult{
-			Result:     shared.OUTCOME_RTE,
-			ResultInfo: fmt.Sprintf("Exit code: %v: %v", session.ExitCode, session.Stderr),
-			Time:       time.Since(session.StartTime).Seconds(),
-			MemUsage:   session.MemoryUsage,
+			Result:      shared.OUTCOME_RTE,
+			ResultInfo:  fmt.Sprintf("Exit code: %v: %v", session.ExitCode, session.Stderr),
+			Time:        time.Since(session.StartTime).Seconds(),
+			MemUsage:    session.MemoryUsage,
 			BatchNumber: session.BatchNum,
-			CaseNumber: session.CaseNum,
+			CaseNumber:  session.CaseNum,
 		}
 	} else { // if the program exited successfully
 		session.StreamResult <- pb.TestCaseResult{
-			Result:     response.Result,
-			ResultInfo: response.ResultInfo,
-			Time:       time.Since(session.StartTime).Seconds(),
-			MemUsage:   session.MemoryUsage,
+			Result:      response.Result,
+			ResultInfo:  response.ResultInfo,
+			Time:        time.Since(session.StartTime).Seconds(),
+			MemUsage:    session.MemoryUsage,
 			BatchNumber: session.BatchNum,
-			CaseNumber: session.CaseNum,
+			CaseNumber:  session.CaseNum,
 		}
 	}
 }

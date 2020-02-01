@@ -5,6 +5,7 @@ import (
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
 	"github.com/BayviewComputerClub/smoothie-runner/util"
 	"golang.org/x/sys/unix"
+	"runtime/debug"
 	"strconv"
 )
 
@@ -19,6 +20,8 @@ type ForkProcess struct {
 
 	ExecCommand uintptr
 	ExecArgs uintptr
+
+	ExecUsed bool
 }
 
 func (proc *ForkProcess) Syscall() bool {
@@ -35,6 +38,14 @@ func (proc *ForkProcess) Syscall() bool {
 func (proc *ForkProcess) Trace() {
 
 	var err error
+
+	defer func() {
+		shared.Debug("left tracer")
+		if err := recover(); err != nil {
+			util.Warn("trace panic recover: " + string(debug.Stack()))
+			proc.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: string(debug.Stack())}
+		}
+	}()
 
 	proc.Pgid, err = unix.Getpgid(proc.Pid)
 	if err != nil {
@@ -77,6 +88,11 @@ func (proc *ForkProcess) Trace() {
 
 		// check judging
 		if proc.Session.CheckProcState(&ws, &rusage) {
+			if !proc.Session.DoneSent {
+				// this is currently a bug
+				// sometimes the receiving goroutine doesn't receive the message until i add another message into the queue
+				proc.Session.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE}
+			}
 			return
 		}
 

@@ -26,6 +26,9 @@ var (
 			"/dev/urandom":                   true,
 			"/proc/meminfo":                  true,
 			"/etc/localtime":                 true,
+			"/usr/lib":                       true,
+			"/usr/lib64":                     true,
+			"/lib":                           true,
 		},
 		AllowWrite: map[string]bool{
 			"/dev/null": true,
@@ -79,7 +82,6 @@ var (
 			"time",
 			"clock_gettime",
 			"restart_syscall",
-
 		},
 		SyscallTrace: []string{
 			// execute file

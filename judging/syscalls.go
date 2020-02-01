@@ -20,9 +20,14 @@ func isFileInSet(file string, s map[string]bool) bool {
 
 	spl := strings.Split(file, "/")
 	comp := ""
-	for _, sp := range spl {
-		comp += "/" + sp
-		if s[file] {
+	for i, sp := range spl {
+		if i == 1 {
+			comp += sp
+		} else {
+			comp += "/" + sp
+		}
+
+		if s[comp] {
 			return true
 		}
 	}
@@ -51,12 +56,12 @@ func (proc *ForkProcess) TraceCheckWrite(pid int, name string, pregs *unix.Ptrac
 
 func (proc *ForkProcess) TraceCheckRead(pid int, name string, pregs *unix.PtraceRegs) {
 	shared.Debug("Checking file read access: " + name)
-	if !fileCheck(name, proc.Session.SandboxProfile.AllowWrite) && !fileCheck(name, proc.Session.SandboxProfile.AllowRead){
+	if !fileCheck(name, proc.Session.SandboxProfile.AllowWrite) && !fileCheck(name, proc.Session.SandboxProfile.AllowRead) {
 		blockCall(pregs, pid)
 	}
 }
 
-func (proc* ForkProcess) TraceCheckStat(pid int, name string, pregs *unix.PtraceRegs) {
+func (proc *ForkProcess) TraceCheckStat(pid int, name string, pregs *unix.PtraceRegs) {
 	shared.Debug("Checking file stat access: " + name)
 	proc.TraceCheckRead(pid, name, pregs)
 }
@@ -116,7 +121,7 @@ func (proc *ForkProcess) CheckRestrictedCall(pid int, pregs *unix.PtraceRegs) {
 
 	var (
 		err error
-		wd string
+		wd  string
 	)
 
 	// https://github.com/criyle/go-sandbox/blob/d1ed5f0f21ddb6a472d200fa32bfdb10c8d6a466/runner/ptrace/handle.go#L61
@@ -158,6 +163,10 @@ func (proc *ForkProcess) CheckRestrictedCall(pid int, pregs *unix.PtraceRegs) {
 		proc.TraceCheckRead(pid, wd, pregs)
 
 	case unix.SYS_EXECVEAT:
+		if !proc.ExecUsed { // on first execveat to run program, ignore call
+			proc.ExecUsed = true
+			return
+		}
 		wd, err = readPeekString(pid, uintptr(pregs.Rsi))
 		proc.TraceCheckRead(pid, wd, pregs)
 
@@ -172,33 +181,12 @@ func (proc *ForkProcess) CheckRestrictedCall(pid int, pregs *unix.PtraceRegs) {
 	}
 }
 
-const (
-	SECCOMP_DISALLOW int16 = iota + 1
-	SECCOMP_HANDLE
-)
-
 func handleTrap(pid int, proc *ForkProcess) error {
-	msg, err := unix.PtraceGetEventMsg(pid)
+	pregs, err := getPregs(pid)
 	if err != nil {
+		util.Warn("ptracegetregs: " + err.Error())
 		return err
 	}
-
-	switch int16(msg) {
-	case SECCOMP_DISALLOW: // blocked by seccomp
-		pregs, err := getPregs(pid)
-		if err != nil {
-			util.Warn("ptracegetregs: " + err.Error())
-			return err
-		}
-		shared.Debug("Blocked: " + strconv.Itoa(int(pregs.Orig_rax)))
-
-	case SECCOMP_HANDLE: // restricted syscalls
-		pregs, err := getPregs(pid)
-		if err != nil {
-			util.Warn("ptracegetregs: " + err.Error())
-			return err
-		}
-		proc.CheckRestrictedCall(pid, pregs)
-	}
+	proc.CheckRestrictedCall(pid, pregs)
 	return nil
 }

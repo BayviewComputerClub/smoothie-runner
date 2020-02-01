@@ -10,7 +10,7 @@ func (proc *ForkProcess) LoadSeccompFilter() error {
 		NoNewPrivs: true,
 		Flag:       seccomp.FilterFlagTSync,
 		Policy: seccomp.Policy{
-			DefaultAction: seccomp.ActionTrace, // trap syscalls by default
+			DefaultAction: seccomp.ActionErrno, // trap syscalls by default
 			Syscalls: []seccomp.SyscallGroup{
 				{ // allowed syscalls
 					Action: seccomp.ActionAllow,
