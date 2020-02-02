@@ -4,7 +4,8 @@ go 1.13
 
 require (
 	github.com/BayviewComputerClub/smoothie-runner/adapters v0.0.0-20191004210318-697ce8368920
-	github.com/BayviewComputerClub/smoothie-runner/protocol v0.0.0-20191005014351-73e6f012bacd
+	github.com/BayviewComputerClub/smoothie-runner/protocol/runner v0.0.0-20200201204513-82f95cf7ffdf
+	github.com/BayviewComputerClub/smoothie-runner/protocol/test-data v0.0.0-20191005014351-73e6f012bacd
 	github.com/BayviewComputerClub/smoothie-runner/shared v0.0.0-20191005014351-73e6f012bacd
 	github.com/BayviewComputerClub/smoothie-runner/util v0.0.0-20191005014351-73e6f012bacd
 	github.com/elastic/go-seccomp-bpf v1.1.0
@@ -25,7 +26,9 @@ require (
 	gopkg.in/yaml.v2 v2.2.8 // indirect
 )
 
-replace github.com/BayviewComputerClub/smoothie-runner/protocol => ../protocol
+replace github.com/BayviewComputerClub/smoothie-runner/protocol/runner => ../protocol/runner
+
+replace github.com/BayviewComputerClub/smoothie-runner/protocol/test-data => ../protocol/test-data
 
 replace github.com/BayviewComputerClub/smoothie-runner/util => ../util
 

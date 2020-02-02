@@ -1,19 +1,31 @@
 syntax = "proto3";
 
 service SmoothieRunnerAPI {
-    rpc GetProblemTestDataHash(string) returns (string) // parameter (problemId), returns hash or "" if does not exist
-    rpc UploadProblemTestData(stream UploadTestDataRequest) returns (string) // returns error
-    rpc TestSolution(stream TestSolutionRequest) returns (stream TestSolutionResponse)
-    rpc Health(Empty) returns (ServiceHealth)
+    rpc GetProblemTestDataHash(ProblemTestDataHashRequest) returns (ProblemTestDataHashResponse) {}
+    rpc UploadProblemTestData(stream UploadTestDataRequest) returns (UploadTestDataResponse) {}
+    rpc TestSolution(stream TestSolutionRequest) returns (stream TestSolutionResponse) {}
+    rpc Health(Empty) returns (ServiceHealth) {}
 }
 
 message Empty {}
 
+message ProblemTestDataHashRequest {
+    string problemId = 1;
+}
+
+message ProblemTestDataHashResponse {
+    string hash = 1; // returns hash or "" if does not exist
+}
+
 message UploadTestDataRequest {
     bytes dataChunk = 1; // part of test-data.proto
-    string problemId = 2;
-    string testDataHash = 3;
+    string problemId = 2; // expected to be sent each time
+    string testDataHash = 3; // expected to be sent each time
     bool finishedUploading = 4; // sent as last message of stream
+}
+
+message UploadTestDataResponse {
+    string error = 1; // will be blank if there is no error
 }
 
 message ServiceHealth {
