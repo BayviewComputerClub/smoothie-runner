@@ -76,7 +76,14 @@ func (runner *SmoothieRunnerAPI) TestSolution(stream pb.SmoothieRunnerAPI_TestSo
 	// check if problem test data is cached
 	if !cache.Match(req.Problem.ProblemId, req.Problem.TestDataHash) {
 		err := stream.Send(&pb.TestSolutionResponse{
-			TestCaseResult:     nil,
+			TestCaseResult: &pb.TestCaseResult{
+				BatchNumber: 0,
+				CaseNumber:  0,
+				Result:      "",
+				ResultInfo:  "",
+				Time:        0,
+				MemUsage:    0,
+			},
 			CompletedTesting:   false,
 			CompileError:       "",
 			TestDataNeedUpload: true,
@@ -84,7 +91,7 @@ func (runner *SmoothieRunnerAPI) TestSolution(stream pb.SmoothieRunnerAPI_TestSo
 		return err
 	}
 
-	stat := make(chan shared.JudgeStatus) // judging status channel
+	stat := make(chan shared.JudgeStatus)              // judging status channel
 	streamReceive := make(chan pb.TestSolutionRequest) // stream status
 
 	// whether or not the judge task has been cancelled (so that judging process exists)

@@ -43,20 +43,21 @@ func StartGrader(session *GradeSession) {
 type StrictGrader struct {}
 
 func (grader StrictGrader) CompareStream(session *GradeSession, expectedAnswerFile *os.File, done chan CaseReturn) {
-	// wait until program finishes running, or error is returned
-	select {
-	case <-done:
-		return
-	case <-session.StreamProcEnd:
-		break
-	}
-
 	expectedAnswer, err := ioutil.ReadAll(expectedAnswerFile)
 	if err != nil {
 		done <- CaseReturn{
 			Result:     shared.OUTCOME_ISE,
 			ResultInfo: "could not read answer file",
 		}
+		return
+	}
+
+	// wait until program finishes running, or error is returned
+	select {
+	case <-done:
+		return
+	case <-session.StreamProcEnd:
+		break
 	}
 
 	// move index for reading the file to beginning

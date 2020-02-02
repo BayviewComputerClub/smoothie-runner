@@ -27,6 +27,7 @@ var (
 
 	PROBLEM_ID                *string
 	TEST_BATCH_EVEN_IF_FAILED *bool
+	UPLOAD_TEST_DATA          *string
 )
 
 func main() {
@@ -42,6 +43,7 @@ func main() {
 	GRADER = flag.String("grader", "strict", "specify the grader to use")
 	PROBLEM_ID = flag.String("problemid", "1", "specify the problem id")
 	TEST_BATCH_EVEN_IF_FAILED = flag.Bool("forcetest", false, "test batch even if failed")
+	UPLOAD_TEST_DATA = flag.String("upload", "true", "whether or not to update test data cache")
 
 	flag.Parse()
 
@@ -71,9 +73,7 @@ func main() {
 
 	client := runner.NewSmoothieRunnerAPIClient(conn)
 
-	log.Println("Connected! Sending test data...")
-
-	// send test data first
+	// create test data
 	test := &testData.TestData{
 		Batch: []*testData.TestDataBatch{
 			{
@@ -101,22 +101,28 @@ func main() {
 		log.Fatal(err)
 	}
 
-	err = testDataStream.Send(&runner.UploadTestDataRequest{
-		DataChunk:         testBytes,
-		ProblemId:         *PROBLEM_ID,
-		TestDataHash:      fmt.Sprintf("%x", hash),
-		FinishedUploading: true,
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
+	if *UPLOAD_TEST_DATA == "true" {
+		log.Println("Connected! Sending test data...")
 
-	msg, err := testDataStream.CloseAndRecv()
-	if err != nil {
-		log.Fatal(err)
-	}
-	if msg.Error != "" {
-		log.Fatal("Test data upload error: " + msg.Error)
+		// send test data first
+
+		err = testDataStream.Send(&runner.UploadTestDataRequest{
+			DataChunk:         testBytes,
+			ProblemId:         *PROBLEM_ID,
+			TestDataHash:      fmt.Sprintf("%x", hash),
+			FinishedUploading: true,
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		msg, err := testDataStream.CloseAndRecv()
+		if err != nil {
+			log.Fatal(err)
+		}
+		if msg.Error != "" {
+			log.Fatal("Test data upload error: " + msg.Error)
+		}
 	}
 
 	log.Println("Finished! Sending solution...")
@@ -147,6 +153,12 @@ func main() {
 				return
 			}
 
+			if in.TestDataNeedUpload {
+				log.Println("Test data needs uploading.")
+				close(waitc)
+				return
+			}
+
 			log.Printf("Compile Error: %v\n", in.CompileError)
 			log.Printf("Result: %v\n", in.TestCaseResult.Result)
 			log.Printf("Result Info: %v\n", in.TestCaseResult.ResultInfo)
@@ -163,7 +175,7 @@ func main() {
 			Code:     string(code),
 		},
 		Problem: &runner.Problem{
-			ProblemId:         *PROBLEM_ID,
+			ProblemId:    *PROBLEM_ID,
 			TestDataHash: fmt.Sprintf("%x", hash),
 			Grader: &runner.ProblemGrader{
 				Type:       *GRADER,
