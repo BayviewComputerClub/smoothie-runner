@@ -36,11 +36,17 @@ func (runner *SmoothieRunnerAPI) GetProblemTestDataHash(ctx context.Context, p *
 
 // upload cache chunks for test data
 func (runner *SmoothieRunnerAPI) UploadProblemTestData(stream pb.SmoothieRunnerAPI_UploadProblemTestDataServer) error {
+	first := false
 	for {
 		req, err := stream.Recv()
 		if err != nil {
 			err = stream.SendAndClose(&pb.UploadTestDataResponse{Error: err.Error()})
 			return err // send nil by default
+		}
+
+		if !first {
+			util.Info("Test data being uploaded for " + req.ProblemId + " of hash " + req.TestDataHash + ".")
+			first = true
 		}
 
 		// add byte chunk to temp cache
@@ -55,6 +61,7 @@ func (runner *SmoothieRunnerAPI) UploadProblemTestData(stream pb.SmoothieRunnerA
 				return err // send nil by default
 			}
 
+			util.Info("Test data finished uploading for " + req.ProblemId + " of hash " + req.TestDataHash + ".")
 			err = stream.SendAndClose(&pb.UploadTestDataResponse{Error: ""})
 			return err // send nil by default
 		}
@@ -88,6 +95,7 @@ func (runner *SmoothieRunnerAPI) TestSolution(stream pb.SmoothieRunnerAPI_TestSo
 			CompileError:       "",
 			TestDataNeedUpload: true,
 		})
+		util.Info("Test data needs to be uploaded for request to judge " + req.Problem.ProblemId + " in " + req.Solution.Language + ".")
 		return err
 	}
 
