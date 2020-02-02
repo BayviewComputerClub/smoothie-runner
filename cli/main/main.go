@@ -2,8 +2,12 @@ package main
 
 import (
 	"context"
+	"crypto/md5"
 	"flag"
-	pb "github.com/BayviewComputerClub/smoothie-runner/protocol"
+	"fmt"
+	runner "github.com/BayviewComputerClub/smoothie-runner/protocol/runner"
+	testData "github.com/BayviewComputerClub/smoothie-runner/protocol/test-data"
+	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
 	"io"
 	"io/ioutil"
@@ -19,7 +23,7 @@ var (
 	EXPECTED_ANSWER_FILE *string
 	TIME_LIMIT           *float64
 	MEM_LIMIT            *float64
-	GRADER				 *string
+	GRADER               *string
 
 	PROBLEM_ID                *string
 	TEST_BATCH_EVEN_IF_FAILED *bool
@@ -65,10 +69,59 @@ func main() {
 		log.Fatalf("Error connecting to host %s:%s, double check again?", *ADDRESS, *PORT)
 	}
 
-	client := pb.NewSmoothieRunnerAPIClient(conn)
+	client := runner.NewSmoothieRunnerAPIClient(conn)
 
-	log.Println("Connected! Sending request...")
+	log.Println("Connected! Sending test data...")
 
+	// send test data first
+	test := &testData.TestData{
+		Batch: []*testData.TestDataBatch{
+			{
+				Case: []*testData.TestDataBatchCase{
+					{
+						Input:          string(input),
+						ExpectedOutput: string(output),
+						BatchNum:       0,
+						CaseNum:        0,
+					},
+				},
+				BatchNum: 0,
+			},
+		},
+	}
+
+	testBytes, err := proto.Marshal(test)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	hash := md5.Sum(testBytes)
+	testDataStream, err := client.UploadProblemTestData(context.Background())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = testDataStream.Send(&runner.UploadTestDataRequest{
+		DataChunk:         testBytes,
+		ProblemId:         *PROBLEM_ID,
+		TestDataHash:      fmt.Sprintf("%x", hash),
+		FinishedUploading: true,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	msg, err := testDataStream.CloseAndRecv()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if msg.Error != "" {
+		log.Fatal("Test data upload error: " + msg.Error)
+	}
+
+	log.Println("Finished! Sending solution...")
+
+	// sending requests
 	stream, err := client.TestSolution(context.Background())
 
 	waitc := make(chan struct{})
@@ -104,26 +157,20 @@ func main() {
 		}
 	}()
 
-	err = stream.Send(&pb.TestSolutionRequest{
-		Solution: &pb.Solution{
+	err = stream.Send(&runner.TestSolutionRequest{
+		Solution: &runner.Solution{
 			Language: *LANGUAGE,
 			Code:     string(code),
 		},
-		Problem: &pb.Problem{
-			TestBatches: []*pb.ProblemBatch{{
-				Cases: []*pb.ProblemBatchCase{{
-					Input:          string(input),
-					ExpectedAnswer: string(output),
-				}},
-			}},
-			ProblemID:         *PROBLEM_ID,
-			TestCasesHashCode: 0,
-			Grader:            &pb.ProblemGrader{
+		Problem: &runner.Problem{
+			ProblemId:         *PROBLEM_ID,
+			TestDataHash: fmt.Sprintf("%x", hash),
+			Grader: &runner.ProblemGrader{
 				Type:       *GRADER,
 				CustomCode: "",
 			},
-			TimeLimit:      *TIME_LIMIT,
-			MemLimit:       *MEM_LIMIT,
+			TimeLimit: *TIME_LIMIT,
+			MemLimit:  *MEM_LIMIT,
 		},
 		TestBatchEvenIfFailed: *TEST_BATCH_EVEN_IF_FAILED,
 		CancelTesting:         false,

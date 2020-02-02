@@ -3,7 +3,8 @@ package judging
 import (
 	"fmt"
 	"github.com/BayviewComputerClub/smoothie-runner/adapters"
-	pb "github.com/BayviewComputerClub/smoothie-runner/protocol"
+	"github.com/BayviewComputerClub/smoothie-runner/cache"
+	pb "github.com/BayviewComputerClub/smoothie-runner/protocol/runner"
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
 	"github.com/BayviewComputerClub/smoothie-runner/util"
 	"github.com/rs/xid"
@@ -35,11 +36,11 @@ func StartQueueWorker(num int) {
 	for {
 		job := <-workQueue
 		atomic.AddInt64(shared.TasksInQueue, -1)
-		util.Info(fmt.Sprintf("Worker %d has picked up job for %s in %s.", num, job.Req.Problem.ProblemID, job.Req.Solution.Language))
+		util.Info(fmt.Sprintf("Worker %d has picked up job for %s in %s.", num, job.Req.Problem.ProblemId, job.Req.Solution.Language))
 
 		TestSolution(job.Req, job.Res, job.Cancelled)
 		atomic.AddInt64(shared.TasksToBeDone, -1)
-		util.Info(fmt.Sprintf("Worker %v has completed job %v in %v", num, job.Req.Problem.ProblemID, job.Req.Solution.Language))
+		util.Info(fmt.Sprintf("Worker %v has completed job %v in %v", num, job.Req.Problem.ProblemId, job.Req.Solution.Language))
 	}
 }
 
@@ -83,13 +84,21 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 		},
 	}
 
+	// get test data
+	testData, err := cache.GetTestData(session.OriginalRequest.Problem.ProblemId)
+	if err != nil {
+		sendISE(err, res)
+		return
+	}
+	defer testData.Cleanup() // close streams
+
 	// remove workspace when exit
 	if shared.CLEANUP_SESSIONS {
 		defer os.RemoveAll(session.Workspace)
 	}
 
 	// create session workspace
-	err := os.Mkdir(session.Workspace, 0755)
+	err = os.Mkdir(session.Workspace, 0755)
 	if err != nil {
 		panic(err)
 	}
@@ -128,13 +137,13 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 	}
 
 	// loop over test batches and cases
-	for i, batch := range req.Problem.TestBatches {
+	for _, batch := range testData.Batches {
 
-		shared.Debug(fmt.Sprintf("Batch #%v", i))
+		shared.Debug(fmt.Sprintf("Batch #%v", batch.BatchNum))
 
 		batchFailed := false
-		for j, batchCase := range batch.Cases {
-			shared.Debug(fmt.Sprintf("Judging case #%v", j))
+		for _, batchCase := range batch.Cases {
+			shared.Debug(fmt.Sprintf("Judging case #%v", batchCase.CaseNum))
 			if *cancelled { // exit if cancelled
 				return
 			}
@@ -145,8 +154,8 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 					Err: nil,
 					Res: pb.TestSolutionResponse{
 						TestCaseResult: &pb.TestCaseResult{
-							BatchNumber:          uint64(i),
-							CaseNumber:           uint64(j),
+							BatchNumber:          uint64(batchCase.BatchNum),
+							CaseNumber:           uint64(batchCase.CaseNum),
 							Result:               shared.OUTCOME_SKIP,
 							ResultInfo:           "",
 						},
@@ -158,7 +167,7 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 			}
 
 			// judge the case and get the result
-			result := JudgeCase(uint64(i), uint64(j), &session, res, batchCase)
+			result := JudgeCase(uint64(batchCase.BatchNum), uint64(batchCase.CaseNum), &session, res, &batchCase)
 
 			if result.Result != shared.OUTCOME_AC {
 				batchFailed = true
@@ -179,17 +188,17 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 
 }
 
-func JudgeCase(batchNum uint64, caseNum uint64, session *shared.JudgeSession, res chan shared.JudgeStatus, batchCase *pb.ProblemBatchCase) pb.TestCaseResult {
+func JudgeCase(batchNum uint64, caseNum uint64, session *shared.JudgeSession, res chan shared.JudgeStatus, batchCase *cache.CachedTestDataCase) pb.TestCaseResult {
 	batchRes := make(chan pb.TestCaseResult)
 
 	// do judging
 	gradingSession := GradeSession{
 		JudgingSession: session,
 
-		Problem:        session.OriginalRequest.Problem,
-		Solution:       session.OriginalRequest.Solution,
-		CurrentBatch:   batchCase,
-		Limit: 			&session.Limit,
+		Problem:     session.OriginalRequest.Problem,
+		Solution:    session.OriginalRequest.Solution,
+		CurrentCase: batchCase,
+		Limit:       &session.Limit,
 
 		BatchNum: 		batchNum,
 		CaseNum: 		caseNum,

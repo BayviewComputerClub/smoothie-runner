@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/BayviewComputerClub/smoothie-runner/cache"
 	"github.com/BayviewComputerClub/smoothie-runner/judging"
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
 	"github.com/BayviewComputerClub/smoothie-runner/util"
@@ -63,6 +64,9 @@ func main() {
 	for i := 0; i < shared.MAX_THREADS; i++ {
 		go judging.StartQueueWorker(i+1)
 	}
+
+	// init cache
+	cache.InitCache()
 
 	// start grpc
 	startApiServer()

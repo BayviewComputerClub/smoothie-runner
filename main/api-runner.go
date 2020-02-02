@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/BayviewComputerClub/smoothie-runner/cache"
 	"github.com/BayviewComputerClub/smoothie-runner/judging"
 	pb "github.com/BayviewComputerClub/smoothie-runner/protocol/runner"
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
@@ -29,6 +30,37 @@ func (runner *SmoothieRunnerAPI) Health(ctx context.Context, empty *pb.Empty) (*
 	}, nil
 }
 
+func (runner *SmoothieRunnerAPI) GetProblemTestDataHash(ctx context.Context, p *pb.ProblemTestDataHashRequest) (*pb.ProblemTestDataHashResponse, error) {
+	return &pb.ProblemTestDataHashResponse{Hash: cache.GetHash(p.ProblemId)}, nil
+}
+
+// upload cache chunks for test data
+func (runner *SmoothieRunnerAPI) UploadProblemTestData(stream pb.SmoothieRunnerAPI_UploadProblemTestDataServer) error {
+	for {
+		req, err := stream.Recv()
+		if err != nil {
+			err = stream.SendAndClose(&pb.UploadTestDataResponse{Error: err.Error()})
+			return err // send nil by default
+		}
+
+		// add byte chunk to temp cache
+		// this is not thread safe, but should be fine since it only adds when in a loop
+		cache.AddByteChunk(req.ProblemId, req.DataChunk)
+
+		// add to cache when finished
+		if req.FinishedUploading {
+			err := cache.AddToCacheFromChunks(req.ProblemId, req.TestDataHash)
+			if err != nil {
+				err = stream.SendAndClose(&pb.UploadTestDataResponse{Error: err.Error()})
+				return err // send nil by default
+			}
+
+			err = stream.SendAndClose(&pb.UploadTestDataResponse{Error: ""})
+			return err // send nil by default
+		}
+	}
+}
+
 func (runner *SmoothieRunnerAPI) TestSolution(stream pb.SmoothieRunnerAPI_TestSolutionServer) error {
 	// receive initial request with data
 	req, err := stream.Recv()
@@ -39,10 +71,21 @@ func (runner *SmoothieRunnerAPI) TestSolution(stream pb.SmoothieRunnerAPI_TestSo
 		return err
 	}
 
-	util.Info("Received request to judge " + req.Problem.ProblemID + " in " + req.Solution.Language + ".")
+	util.Info("Received request to judge " + req.Problem.ProblemId + " in " + req.Solution.Language + ".")
 
-	stat := make(chan shared.JudgeStatus)
-	streamReceive := make(chan pb.TestSolutionRequest)
+	// check if problem test data is cached
+	if !cache.Match(req.Problem.ProblemId, req.Problem.TestDataHash) {
+		err := stream.Send(&pb.TestSolutionResponse{
+			TestCaseResult:     nil,
+			CompletedTesting:   false,
+			CompileError:       "",
+			TestDataNeedUpload: true,
+		})
+		return err
+	}
+
+	stat := make(chan shared.JudgeStatus) // judging status channel
+	streamReceive := make(chan pb.TestSolutionRequest) // stream status
 
 	// whether or not the judge task has been cancelled (so that judging process exists)
 	isCancelled := false
@@ -72,7 +115,7 @@ func (runner *SmoothieRunnerAPI) TestSolution(stream pb.SmoothieRunnerAPI_TestSo
 		}
 	}()
 
-	// combining judging stream and grpc status streams simulaneously
+	// combining judging stream and grpc status streams simultaneously
 	for {
 		select {
 		case s := <-stat: // if status update

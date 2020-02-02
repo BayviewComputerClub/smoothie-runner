@@ -3,7 +3,7 @@ package cache
 import (
 	"encoding/base64"
 	"fmt"
-	test_data "github.com/BayviewComputerClub/smoothie-runner/protocol/test-data"
+	testdata "github.com/BayviewComputerClub/smoothie-runner/protocol/test-data"
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
@@ -34,44 +34,66 @@ type CachedTestData struct {
 	Batches []CachedTestDataBatch
 }
 
+func (testData *CachedTestData) Cleanup() {
+	for _, b := range testData.Batches {
+		for _, c := range b.Cases {
+			c.Input.Close()
+			c.Output.Close()
+		}
+	}
+}
+
 func InitCache() {
-	src, err := os.Stat(shared.CACHE_DIR)
+	_, err := os.Stat(shared.CACHE_DIR)
 	if os.IsNotExist(err) {
-		err := os.MkdirAll(shared.CACHE_DIR, 0644)
+		err := os.MkdirAll(shared.CACHE_DIR, 0755)
 		if err != nil {
 			panic(err)
 		}
+	}
+	src, err := os.Stat(shared.CACHE_DIR)
+	if err != nil {
+		panic(err)
 	}
 	if src.Mode().IsRegular() {
 		log.Fatal("Tried to create cache folder, but it exists as a file!")
 	}
 }
 
-// check if the problem exists, and the hash matches
-func Match(problemId string, hash string) bool {
+// returns "" if hash not found
+func GetHash(problemId string) string {
 	folderName := shared.CACHE_DIR + "/" + getBase64(problemId)
 
 	// check if problem folder exists
 	_, err := os.Stat(folderName)
 	if os.IsNotExist(err) {
-		return false
+		return ""
 	}
 
 	// get hash
 	var conf Meta
 	confRaw, err := ioutil.ReadFile(folderName + "/meta.yml")
 	if err != nil {
-		return false
+		return ""
 	}
 	err = yaml.Unmarshal(confRaw, &conf)
 	if err != nil {
-		return false
+		return ""
 	}
-
-	return conf.Hash == hash
+	return conf.Hash
 }
 
-func AddToCache(problemId string, hash string, testData test_data.TestData) error {
+// check if the problem exists, and the hash matches
+func Match(problemId string, hash string) bool {
+	h := GetHash(problemId)
+	if h == "" {
+		return false
+	} else {
+		return h == hash
+	}
+}
+
+func AddToCache(problemId string, hash string, testData testdata.TestData) error {
 	folderName := shared.CACHE_DIR + "/" + getBase64(problemId)
 
 	_, err := os.Stat(folderName)
@@ -79,7 +101,7 @@ func AddToCache(problemId string, hash string, testData test_data.TestData) erro
 		os.RemoveAll(folderName)
 	}
 
-	err = os.MkdirAll(folderName, 0644)
+	err = os.MkdirAll(folderName, 0755)
 	if err != nil {
 		return err
 	}
@@ -131,7 +153,7 @@ func GetTestData(problemId string) (*CachedTestData, error) {
 				return err
 			}
 		} else if fType == "out" { // output file
-			f, err = os.OpenFile(path, os.O_RDWR, os.ModeAppend) // open out file with read and write fd
+			f, err = os.Open(path)
 			if err != nil {
 				return err
 			}

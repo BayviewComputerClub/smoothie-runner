@@ -7,10 +7,11 @@ import (
 )
 
 var (
-	DataChunks map[string][]byte // temporarily store test data that is being streamed from client
+	DataChunks = make(map[string][]byte) // temporarily store test data that is being streamed from client
 )
 
 // add byte chunk of a pb.TestData object
+// NOT THREAD SAFE
 func AddByteChunk(problemId string, chunk []byte) {
 	if v, ok := DataChunks[problemId]; ok {
 		DataChunks[problemId] = append(v, chunk...)

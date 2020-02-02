@@ -3,6 +3,7 @@ module github.com/BayviewComputerClub/smoothie-runner/main
 go 1.13
 
 require (
+	github.com/BayviewComputerClub/smoothie-runner/cache v0.0.0-20200201204513-82f95cf7ffdf
 	github.com/BayviewComputerClub/smoothie-runner/judging v0.0.0-20200201204513-82f95cf7ffdf
 	github.com/BayviewComputerClub/smoothie-runner/protocol/runner v0.0.0-20200201204513-82f95cf7ffdf
 	github.com/BayviewComputerClub/smoothie-runner/protocol/test-data v0.0.0-20200201204513-82f95cf7ffdf
@@ -22,3 +23,5 @@ replace github.com/BayviewComputerClub/smoothie-runner/util => ../util
 replace github.com/BayviewComputerClub/smoothie-runner/shared => ../shared
 
 replace github.com/BayviewComputerClub/smoothie-runner/adapters => ../adapters
+
+replace github.com/BayviewComputerClub/smoothie-runner/cache => ../cache

@@ -6,6 +6,8 @@ import (
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
 	"github.com/BayviewComputerClub/smoothie-runner/util"
 	"io"
+	"io/ioutil"
+	"os"
 	"strings"
 )
 
@@ -20,12 +22,12 @@ func init() {
 
 type Grader interface {
 	// must wait on session.StreamProcEnd and send output to done
-	CompareStream(session *GradeSession, expectedAnswer *string, done chan CaseReturn)
+	CompareStream(session *GradeSession, expectedAnswer *os.File, done chan CaseReturn)
 }
 
 func StartGrader(session *GradeSession) {
 	if grader, ok := graders[session.JudgingSession.OriginalRequest.Problem.Grader.Type]; ok {
-		grader.CompareStream(session, &session.CurrentBatch.ExpectedAnswer, session.StreamDone)
+		grader.CompareStream(session, session.CurrentCase.Output, session.StreamDone)
 	} else {
 		session.StreamDone <- CaseReturn{
 			Result:     shared.OUTCOME_ISE,
@@ -40,13 +42,21 @@ func StartGrader(session *GradeSession) {
 
 type StrictGrader struct {}
 
-func (grader StrictGrader) CompareStream(session *GradeSession, expectedAnswer *string, done chan CaseReturn) {
+func (grader StrictGrader) CompareStream(session *GradeSession, expectedAnswerFile *os.File, done chan CaseReturn) {
 	// wait until program finishes running, or error is returned
 	select {
 	case <-done:
 		return
 	case <-session.StreamProcEnd:
 		break
+	}
+
+	expectedAnswer, err := ioutil.ReadAll(expectedAnswerFile)
+	if err != nil {
+		done <- CaseReturn{
+			Result:     shared.OUTCOME_ISE,
+			ResultInfo: "could not read answer file",
+		}
 	}
 
 	// move index for reading the file to beginning
@@ -56,7 +66,7 @@ func (grader StrictGrader) CompareStream(session *GradeSession, expectedAnswer *
 	buff := bufio.NewReader(session.OutputStream)
 	expectingEnd := false
 	ansIndex := 0
-	ans := []rune(strings.ReplaceAll(*expectedAnswer, "\r", ""))
+	ans := []rune(strings.ReplaceAll(string(expectedAnswer), "\r", ""))
 
 	for {
 		c, _, err := buff.ReadRune()
@@ -104,10 +114,18 @@ func (grader StrictGrader) CompareStream(session *GradeSession, expectedAnswer *
 
 type EndTrimGrader struct {}
 
-func (grader EndTrimGrader) CompareStream(session *GradeSession, expectedAnswer *string, done chan CaseReturn) {
+func (grader EndTrimGrader) CompareStream(session *GradeSession, expectedAnswerFile *os.File, done chan CaseReturn) {
+	expectedAnswer, err := ioutil.ReadAll(expectedAnswerFile)
+	if err != nil {
+		done <- CaseReturn{
+			Result:     shared.OUTCOME_ISE,
+			ResultInfo: "could not read answer file",
+		}
+	}
+
 	buff := bufio.NewReader(session.OutputStream)
 
-	expectedScanner := bufio.NewScanner(strings.NewReader(*expectedAnswer))
+	expectedScanner := bufio.NewScanner(strings.NewReader(string(expectedAnswer)))
 	expectedScanner.Scan()
 
 	expectedLine := []rune(strings.ReplaceAll(expectedScanner.Text(), "\r", ""))

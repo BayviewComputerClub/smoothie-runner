@@ -3,7 +3,8 @@ package judging
 import (
 	"bufio"
 	"fmt"
-	pb "github.com/BayviewComputerClub/smoothie-runner/protocol"
+	"github.com/BayviewComputerClub/smoothie-runner/cache"
+	pb "github.com/BayviewComputerClub/smoothie-runner/protocol/runner"
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
 	"github.com/BayviewComputerClub/smoothie-runner/util"
 	"golang.org/x/sys/unix"
@@ -25,10 +26,10 @@ type CaseReturn struct {
 type GradeSession struct {
 	JudgingSession *shared.JudgeSession
 
-	Problem      *pb.Problem
-	Solution     *pb.Solution
-	CurrentBatch *pb.ProblemBatchCase
-	Limit        *shared.Rlimits
+	Problem     *pb.Problem
+	Solution    *pb.Solution
+	CurrentCase *cache.CachedTestDataCase
+	Limit       *shared.Rlimits
 
 	BatchNum uint64
 	CaseNum  uint64
@@ -88,17 +89,10 @@ func (session *GradeSession) InitIOFiles() {
 	name := strconv.FormatInt(time.Now().UnixNano(), 10)
 
 	outputFileLoc := session.JudgingSession.Workspace + "/" + name + ".out"
-	inputFileLoc := session.JudgingSession.Workspace + "/" + name + ".in"
 
 	err := ioutil.WriteFile(outputFileLoc, []byte(""), 0644)
 	if err != nil {
 		util.Warn("outputstream: " + err.Error())
-		session.StreamResult <- pb.TestCaseResult{Result: shared.OUTCOME_ISE, ResultInfo: ""}
-		return
-	}
-	err = ioutil.WriteFile(inputFileLoc, []byte(session.CurrentBatch.Input), 0644)
-	if err != nil {
-		util.Warn("inputstream: " + err.Error())
 		session.StreamResult <- pb.TestCaseResult{Result: shared.OUTCOME_ISE, ResultInfo: ""}
 		return
 	}
@@ -110,13 +104,8 @@ func (session *GradeSession) InitIOFiles() {
 		return
 	}
 
-	session.InputStream, err = os.Open(inputFileLoc)
-	if err != nil {
-		util.Warn("inputstream: " + err.Error())
-		session.StreamResult <- pb.TestCaseResult{Result: shared.OUTCOME_ISE, ResultInfo: ""}
-		return
-	}
-
+	// use opened input
+	session.InputStream = session.CurrentCase.Input
 }
 
 /*
