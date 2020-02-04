@@ -10,7 +10,6 @@ message TestDataBatchCase {
 message TestDataBatch {
     repeated TestDataBatchCase case = 1;
     int64 batchNum = 2;
-    int64 pointsWorth = 3;
 }
 
 message TestData {
