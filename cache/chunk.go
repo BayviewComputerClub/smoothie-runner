@@ -31,5 +31,7 @@ func AddToCacheFromChunks(problemId string, hash string) error {
 		return err
 	}
 
+	delete(DataChunks, problemId) // remove from map
+
 	return AddToCache(problemId, hash, testData)
 }
