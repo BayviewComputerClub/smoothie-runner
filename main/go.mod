@@ -9,7 +9,7 @@ require (
 	github.com/BayviewComputerClub/smoothie-runner/protocol/test-data v0.0.0-20200201204513-82f95cf7ffdf
 	github.com/BayviewComputerClub/smoothie-runner/shared v0.0.0-20200201204513-82f95cf7ffdf
 	github.com/BayviewComputerClub/smoothie-runner/util v0.0.0-20200201204513-82f95cf7ffdf
-	google.golang.org/grpc v1.24.0
+	google.golang.org/grpc v1.27.0
 )
 
 replace github.com/BayviewComputerClub/smoothie-runner/protocol/runner => ../protocol/runner

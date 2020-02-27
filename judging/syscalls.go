@@ -128,39 +128,57 @@ func (proc *ForkProcess) CheckRestrictedCall(pid int, pregs *unix.PtraceRegs) {
 	switch int(pregs.Orig_rax) {
 	case unix.SYS_OPEN:
 		wd, err = readPeekString(pid, uintptr(pregs.Rdi))
-		proc.TraceCheckOpen(pid, wd, pregs.Rsi, pregs)
+		if err == nil {
+			proc.TraceCheckOpen(pid, wd, pregs.Rsi, pregs)
+		}
 
 	case unix.SYS_OPENAT:
 		wd, err = readPeekString(pid, uintptr(pregs.Rsi))
-		proc.TraceCheckOpen(pid, wd, pregs.Rdx, pregs)
+		if err == nil {
+			proc.TraceCheckOpen(pid, wd, pregs.Rdx, pregs)
+		}
 
 	case unix.SYS_READLINK:
 		wd, err = readPeekString(pid, uintptr(pregs.Rdi))
-		proc.TraceCheckRead(pid, wd, pregs)
+		if err == nil {
+			proc.TraceCheckRead(pid, wd, pregs)
+		}
 
 	case unix.SYS_READLINKAT:
 		wd, err = readPeekString(pid, uintptr(pregs.Rsi))
-		proc.TraceCheckRead(pid, wd, pregs)
+		if err == nil {
+			proc.TraceCheckRead(pid, wd, pregs)
+		}
 
 	case unix.SYS_UNLINK, unix.SYS_CHMOD, unix.SYS_RENAME:
 		wd, err = readPeekString(pid, uintptr(pregs.Rdi))
-		proc.TraceCheckWrite(pid, wd, pregs)
+		if err == nil {
+			proc.TraceCheckWrite(pid, wd, pregs)
+		}
 
 	case unix.SYS_UNLINKAT:
 		wd, err = readPeekString(pid, uintptr(pregs.Rsi))
-		proc.TraceCheckWrite(pid, wd, pregs)
+		if err == nil {
+			proc.TraceCheckWrite(pid, wd, pregs)
+		}
 
 	case unix.SYS_ACCESS, unix.SYS_STAT, unix.SYS_LSTAT:
 		wd, err = readPeekString(pid, uintptr(pregs.Rdi))
-		proc.TraceCheckStat(pid, wd, pregs)
+		if err == nil {
+			proc.TraceCheckStat(pid, wd, pregs)
+		}
 
 	case unix.SYS_FACCESSAT, unix.SYS_NEWFSTATAT:
 		wd, err = readPeekString(pid, uintptr(pregs.Rsi))
-		proc.TraceCheckStat(pid, wd, pregs)
+		if err == nil {
+			proc.TraceCheckStat(pid, wd, pregs)
+		}
 
 	case unix.SYS_EXECVE:
 		wd, err = readPeekString(pid, uintptr(pregs.Rdi))
-		proc.TraceCheckRead(pid, wd, pregs)
+		if err == nil {
+			proc.TraceCheckRead(pid, wd, pregs)
+		}
 
 	case unix.SYS_EXECVEAT:
 		if !proc.ExecUsed { // on first execveat to run program, ignore call

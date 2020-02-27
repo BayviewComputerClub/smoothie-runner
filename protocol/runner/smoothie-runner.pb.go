@@ -729,11 +729,11 @@ var fileDescriptor_f6cd65c4d0588d75 = []byte{
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ context.Context
-var _ grpc.ClientConn
+var _ grpc.ClientConnInterface
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
-const _ = grpc.SupportPackageIsVersion4
+const _ = grpc.SupportPackageIsVersion6
 
 // SmoothieRunnerAPIClient is the client API for SmoothieRunnerAPI service.
 //
@@ -746,10 +746,10 @@ type SmoothieRunnerAPIClient interface {
 }
 
 type smoothieRunnerAPIClient struct {
-	cc *grpc.ClientConn
+	cc grpc.ClientConnInterface
 }
 
-func NewSmoothieRunnerAPIClient(cc *grpc.ClientConn) SmoothieRunnerAPIClient {
+func NewSmoothieRunnerAPIClient(cc grpc.ClientConnInterface) SmoothieRunnerAPIClient {
 	return &smoothieRunnerAPIClient{cc}
 }
 
