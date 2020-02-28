@@ -11,8 +11,8 @@ EXPOSE $PORT
 COPY . /usr/src/server
 WORKDIR /usr/src/server
 
-RUN apt-get update -y && \
-    apt-get install build-essential openjdk-11-jdk-headless golang-goprotobuf-dev -y && \
+RUN apt update -y && \
+    apt install build-essential openjdk-11-jdk-headless golang-goprotobuf-dev -y && \
     chmod +x protocol/generate.sh && \
     bash protocol/generate.sh && \
     cd main && \
