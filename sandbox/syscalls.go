@@ -6,6 +6,7 @@ import (
 	"github.com/BayviewComputerClub/smoothie-runner/util"
 	"golang.org/x/sys/unix"
 	"math"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -49,6 +50,7 @@ func getFileRealPath(p string) string {
 
 // check if the file is in the set
 func fileCheck(name string, s map[string]bool) bool {
+	name = path.Clean(name)
 	return isFileInSet(name, s) || isFileInSet(getFileRealPath(name), s)
 }
 

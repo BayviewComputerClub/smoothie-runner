@@ -4,6 +4,7 @@ import (
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
 	"github.com/BayviewComputerClub/smoothie-runner/util"
 	"golang.org/x/sys/unix"
+	"syscall"
 	"time"
 )
 
@@ -33,7 +34,7 @@ type RunnerResult struct {
 type RunnerSessionResult struct {
 	Status int
 	Error string
-	TimeUsed int64
+	TimeUsed time.Duration
 	MemoryUsed int64
 }
 
@@ -41,7 +42,7 @@ type RunnerSession struct {
 	// Channel to stream result back (init)
 	ResultChan chan RunnerSessionResult
 
-	// Internal result stream
+	// Internal result stream (init)
 	InternalResultChan chan RunnerResult
 
 	// Pid of child
@@ -115,7 +116,17 @@ func (session *RunnerSession) Start() {
 func (session *RunnerSession) WaitForStatus() {
 	res := <-session.InternalResultChan
 
+	if util.IsPidRunning(session.Pid) {
+		unix.Kill(session.Pid, syscall.SIGTERM)
+		unix.Kill(session.Pid, syscall.SIGKILL) // extra assurance
+		var wstatus unix.WaitStatus
+		unix.Wait4(session.Pid, &wstatus, unix.WALL|unix.WNOHANG, nil) // collect zombie
+	}
 
-
-	session.ResultChan <- res
+	session.ResultChan <- RunnerSessionResult{
+		Status:     res.Status,
+		Error:      res.Error,
+		TimeUsed:   time.Since(session.StartTime),
+		MemoryUsed: 0, // TODO
+	}
 }
