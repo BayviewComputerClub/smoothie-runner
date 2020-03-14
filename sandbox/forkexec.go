@@ -14,6 +14,14 @@ import (
 
 var empty = [...]byte{0}
 
+type ForkExecContext struct {
+	Pid  uintptr
+	Pipe [2]int
+
+	ArgV []*byte
+	EnvV []*byte
+}
+
 func prepareExec(args, env []string) (*byte, []*byte, []*byte, error) {
 	// make exec args0
 	argv0, err := syscall.BytePtrFromString(args[0])
@@ -33,77 +41,97 @@ func prepareExec(args, env []string) (*byte, []*byte, []*byte, error) {
 	return argv0, argv, envv, nil
 }
 
-func (session *RunnerSession) ForkExec() {
+func (session *RunnerSession) ForkExec() error {
 	var (
-		err1, err2 unix.Errno
-		r1 uintptr
+		err     error
+		err1    unix.Errno
+		context ForkExecContext
 	)
 
-	_, argv, envv, err := prepareExec(session.ExecArgs, session.Env)
+	// prepare for execveat
+	_, context.ArgV, context.EnvV, err = prepareExec(session.ExecArgs, session.ExecEnv)
 	if err != nil {
 		util.Warn("forkexec prepareexec: " + err.Error())
-		proc.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
-		return
+		return err
 	}
 
 	// create pipe
-	p, err := syscall.Socketpair(syscall.AF_LOCAL, syscall.SOCK_STREAM|syscall.SOCK_CLOEXEC, 0)
+	context.Pipe, err = syscall.Socketpair(syscall.AF_LOCAL, syscall.SOCK_STREAM|syscall.SOCK_CLOEXEC, 0)
 	if err != nil {
 		util.Warn("forkexec socketpair: " + err.Error())
-		proc.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
-		return
+		return err
 	}
-
-	pipe := p[1]
 
 	syscall.ForkLock.Lock()
 
-	pid, _, err1 := unix.Syscall6(syscall.SYS_CLONE, uintptr(unix.SIGCHLD), 0, 0, 0, 0, 0)
+	// fork
+	context.Pid, _, err1 = unix.Syscall6(syscall.SYS_CLONE, uintptr(unix.SIGCHLD), 0, 0, 0, 0, 0)
 
-	if err1 != 0 || pid != 0 {
-		// -=-=- in parent process -=-=-
-
-		syscall.ForkLock.Unlock()
-
-		unix.Close(p[1])
-
+	if err1 != 0 || context.Pid != 0 {
+		util.Warn("forkexec clone: " + err1.Error())
 		if err1 != 0 {
-			util.Warn("forkexec clone: " + err.Error())
-			proc.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
-			return
+			return err1
 		}
-
-		// child returned error code, and sync
-		r1, _, err1 := unix.RawSyscall(syscall.SYS_READ, uintptr(p[0]), uintptr(unsafe.Pointer(&err2)), unsafe.Sizeof(err2))
-		if r1 != unsafe.Sizeof(err2) || err2 != 0 || err1 != 0 {
-			unix.Close(p[0])
-			if r1 == unsafe.Sizeof(err2) {
-				err = err2
-			}
-			if err == nil {
-				err = syscall.EPIPE
-			}
-			handleChildFailed(pid)
-			util.Warn("forkexec execread: " + err.Error())
-			proc.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
-			return
-		}
-		unix.RawSyscall(syscall.SYS_WRITE, uintptr(p[0]), uintptr(unsafe.Pointer(&err1)), unsafe.Sizeof(err1))
-
-		proc.Pid = int(pid)
-		unix.Close(p[0])
-
-		return
+		// -=-=- in parent process -=-=-
+		return session.ForkExecParent(context)
 	}
 
+	// -=-=- in child process -=-=-
+	session.ForkExecChild(context)
+	util.Fatal("Fork exec in child error, leaving child...")
+	return nil // should not be able to reach
+}
+
+func (session *RunnerSession) ForkExecParent(context ForkExecContext) error {
+	var (
+		err        error
+		err1, err2 unix.Errno
+		r1         uintptr
+	)
+
+	syscall.ForkLock.Unlock()
+
+	unix.Close(context.Pipe[1])
+
+	// child returned error code, and sync
+	r1, _, err1 = unix.RawSyscall(syscall.SYS_READ, uintptr(context.Pipe[0]), uintptr(unsafe.Pointer(&err2)), unsafe.Sizeof(err2))
+	if r1 != unsafe.Sizeof(err2) || err2 != 0 || err1 != 0 {
+		unix.Close(context.Pipe[0])
+		if r1 == unsafe.Sizeof(err2) {
+			err = err2
+		}
+		if err == nil {
+			err = syscall.EPIPE
+		}
+		handleChildFailed(context.Pid)
+		util.Warn("forkexec execread: " + err.Error())
+		return err
+	}
+	unix.RawSyscall(syscall.SYS_WRITE, uintptr(context.Pipe[0]), uintptr(unsafe.Pointer(&err1)), unsafe.Sizeof(err1))
+
+	session.Pid = int(context.Pid)
+
+	unix.Close(context.Pipe[0])
+	return nil
+}
+
+func (session *RunnerSession) ForkExecChild(context ForkExecContext) {
 	// -=-=- child forked process -=-=-
 
-	if err := unix.Close(p[0]); err != nil {
+	var (
+		err        error
+		err1, err2 unix.Errno
+		r1         uintptr
+	)
+
+	pipe := context.Pipe[1]
+
+	if err := unix.Close(context.Pipe[0]); err != nil {
 		forkLeaveError(pipe, err)
 		return
 	}
 
-	pid, _, err = syscall.RawSyscall(unix.SYS_GETPID, 0, 0, 0)
+	pid, _, err := syscall.RawSyscall(unix.SYS_GETPID, 0, 0, 0)
 
 	_, _, err1 = syscall.RawSyscall(syscall.SYS_SETPGID, 0, 0, 0)
 	if err1 != 0 {
@@ -112,33 +140,30 @@ func (session *RunnerSession) ForkExec() {
 	}
 
 	// change workspace
-	err = unix.Chdir(proc.Session.Command.Dir)
+	err = unix.Chdir(session.Workspace)
 	if err != nil {
 		forkLeaveError(pipe, err)
 		return
 	}
 
-	// set stdin, stdout, stderr file descriptors
-	if err := unix.Dup2(int(proc.Session.InputStream.Fd()), 0) ; err != nil {
-		forkLeaveError(pipe, err)
-		return
-	}
-	if err := unix.Dup2(int(proc.Session.OutputStream.Fd()), 1) ; err != nil {
-		forkLeaveError(pipe, err)
-		return
-	}
-	if err := unix.Dup2(int(proc.Session.ErrorStream.Fd()), 2) ; err != nil {
-		forkLeaveError(pipe, err)
-		return
+	// set specified file descriptors (ex. stdin - 0, stdout - 1, stderr - 2)
+	for k, v := range session.Files {
+		if err := unix.Dup2(int(v), k); err != nil {
+			forkLeaveError(pipe, err)
+			return
+		}
 	}
 
 	// close all file descriptors in a brutal fashion :)
-	for i := 3; i < sysconf.SC_OPEN_MAX; i++ {
-		_ = unix.Close(i)
+	for i := 0; i < sysconf.SC_OPEN_MAX; i++ {
+		// check if file descriptor is not used
+		if _, ok := session.Files[i]; !ok {
+			_ = unix.Close(i)
+		}
 	}
 
 	// set resource limits
-	err = proc.SetRlimits()
+	err = session.SetRlimits()
 	if err != nil {
 		forkLeaveError(pipe, err)
 		return
@@ -166,14 +191,14 @@ func (session *RunnerSession) ForkExec() {
 		}
 
 		// wait for tracer
-		_,_, err1 = unix.RawSyscall(unix.SYS_KILL, pid, uintptr(unix.SIGSTOP), 0)
+		_, _, err1 = unix.RawSyscall(unix.SYS_KILL, pid, uintptr(unix.SIGSTOP), 0)
 		if err1 != 0 {
 			forkLeaveError(pipe, err1)
 			return
 		}
 
 		// seccomp
-		err = proc.LoadSeccompFilter() // calls prctl set no privs as well
+		err = session.LoadSeccompFilter() // calls prctl set no privs as well
 		if err != nil {
 			forkLeaveError(pipe, err)
 			return
@@ -181,7 +206,7 @@ func (session *RunnerSession) ForkExec() {
 	}
 
 	// execute process, now replaced by new process
-	_, _, err1 = syscall.RawSyscall6(unix.SYS_EXECVEAT, proc.ExecCommand, uintptr(unsafe.Pointer(&empty[0])), uintptr(unsafe.Pointer(&argv[0])), uintptr(unsafe.Pointer(&envv[0])), unix.AT_EMPTY_PATH, 0)
+	_, _, err1 = syscall.RawSyscall6(unix.SYS_EXECVEAT, session.ExecFile, uintptr(unsafe.Pointer(&empty[0])), uintptr(unsafe.Pointer(&context.ArgV[0])), uintptr(unsafe.Pointer(&context.EnvV[0])), unix.AT_EMPTY_PATH, 0)
 }
 
 func forkLeaveError(pipe int, err error) {

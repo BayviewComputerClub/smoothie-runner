@@ -28,8 +28,8 @@ type RunnerSession struct {
 	// Whether or not the initial exec was called
 	ExecUsed bool
 
-	// File descriptors to set
-	Files map[uint64]uintptr
+	// File descriptors to set: [newfd]oldfd
+	Files map[int]uintptr
 
 	// Folder where file is executed
 	Workspace string

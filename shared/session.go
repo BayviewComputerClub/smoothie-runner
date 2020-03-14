@@ -19,6 +19,6 @@ type JudgeSession struct {
 	CommandFd uintptr
 	CommandArgs []*byte
 	RunCommand *exec.Cmd
-	Limits
+	Limit Rlimits
 }
 

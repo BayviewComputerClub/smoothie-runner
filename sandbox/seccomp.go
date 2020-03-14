@@ -2,7 +2,7 @@ package sandbox
 
 import "github.com/elastic/go-seccomp-bpf"
 
-func (proc *ForkProcess) LoadSeccompFilter() error {
+func (session *RunnerSession) LoadSeccompFilter() error {
 	// create seccomp filter
 	filter := seccomp.Filter{
 		NoNewPrivs: true,
