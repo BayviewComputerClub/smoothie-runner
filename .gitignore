@@ -16,3 +16,5 @@ smoothie-runner
 smoothie-runner-cli
 test
 /protocol/smoothie-runner.pb.go
+/protocol/runner/smoothie-runner.pb.go
+/protocol/test-data/test-data.pb.go

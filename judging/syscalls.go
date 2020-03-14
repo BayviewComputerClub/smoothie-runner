@@ -1,7 +1,6 @@
 package judging
 
 import (
-	"bytes"
 	"fmt"
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
 	"github.com/BayviewComputerClub/smoothie-runner/util"
@@ -10,7 +9,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 )
 
 func isFileInSet(file string, s map[string]bool) bool {
@@ -75,20 +73,17 @@ func (proc *ForkProcess) TraceCheckOpen(pid int, name string, flags uint64, preg
 	}
 }
 
-// grabs the string at the given address without vmreadv.
-func readPeekString(pid int, address uintptr) (string, error) {
-	word := make([]byte, unix.PathMax)
-	_, err := unix.PtracePeekData(pid, address, word)
+func readStringAtAddr(pid int, address uintptr) (string, error) {
+	//return util.ReadPeekString(pid, address)
+	s, err := util.ProcessVmReadVStr(pid, address)
 	if err != nil {
-		return "", err
+		if no, ok := err.(unix.Errno); ok {
+			if no == unix.ENOSYS {
+				s, err = util.ReadPeekString(pid, address)
+			}
+		}
 	}
-	length := bytes.IndexByte(word, 0)
-	if length == -1 {
-		length = syscall.PathMax
-	}
-	//v := uint64(0x2Bc0ffee)
-	//err = binary.Read(bytes.NewReader(word), binary.LittleEndian, &v)
-	return string(word[:length]), nil
+	return s, err
 }
 
 func getPregs(pid int) (*unix.PtraceRegs, error) {
@@ -127,55 +122,55 @@ func (proc *ForkProcess) CheckRestrictedCall(pid int, pregs *unix.PtraceRegs) {
 	// https://github.com/criyle/go-sandbox/blob/d1ed5f0f21ddb6a472d200fa32bfdb10c8d6a466/runner/ptrace/handle.go#L61
 	switch int(pregs.Orig_rax) {
 	case unix.SYS_OPEN:
-		wd, err = readPeekString(pid, uintptr(pregs.Rdi))
+		wd, err = readStringAtAddr(pid, uintptr(pregs.Rdi))
 		if err == nil {
 			proc.TraceCheckOpen(pid, wd, pregs.Rsi, pregs)
 		}
 
 	case unix.SYS_OPENAT:
-		wd, err = readPeekString(pid, uintptr(pregs.Rsi))
+		wd, err = readStringAtAddr(pid, uintptr(pregs.Rsi))
 		if err == nil {
 			proc.TraceCheckOpen(pid, wd, pregs.Rdx, pregs)
 		}
 
 	case unix.SYS_READLINK:
-		wd, err = readPeekString(pid, uintptr(pregs.Rdi))
+		wd, err = readStringAtAddr(pid, uintptr(pregs.Rdi))
 		if err == nil {
 			proc.TraceCheckRead(pid, wd, pregs)
 		}
 
 	case unix.SYS_READLINKAT:
-		wd, err = readPeekString(pid, uintptr(pregs.Rsi))
+		wd, err = readStringAtAddr(pid, uintptr(pregs.Rsi))
 		if err == nil {
 			proc.TraceCheckRead(pid, wd, pregs)
 		}
 
 	case unix.SYS_UNLINK, unix.SYS_CHMOD, unix.SYS_RENAME:
-		wd, err = readPeekString(pid, uintptr(pregs.Rdi))
+		wd, err = readStringAtAddr(pid, uintptr(pregs.Rdi))
 		if err == nil {
 			proc.TraceCheckWrite(pid, wd, pregs)
 		}
 
 	case unix.SYS_UNLINKAT:
-		wd, err = readPeekString(pid, uintptr(pregs.Rsi))
+		wd, err = readStringAtAddr(pid, uintptr(pregs.Rsi))
 		if err == nil {
 			proc.TraceCheckWrite(pid, wd, pregs)
 		}
 
 	case unix.SYS_ACCESS, unix.SYS_STAT, unix.SYS_LSTAT:
-		wd, err = readPeekString(pid, uintptr(pregs.Rdi))
+		wd, err = readStringAtAddr(pid, uintptr(pregs.Rdi))
 		if err == nil {
 			proc.TraceCheckStat(pid, wd, pregs)
 		}
 
 	case unix.SYS_FACCESSAT, unix.SYS_NEWFSTATAT:
-		wd, err = readPeekString(pid, uintptr(pregs.Rsi))
+		wd, err = readStringAtAddr(pid, uintptr(pregs.Rsi))
 		if err == nil {
 			proc.TraceCheckStat(pid, wd, pregs)
 		}
 
 	case unix.SYS_EXECVE:
-		wd, err = readPeekString(pid, uintptr(pregs.Rdi))
+		wd, err = readStringAtAddr(pid, uintptr(pregs.Rdi))
 		if err == nil {
 			proc.TraceCheckRead(pid, wd, pregs)
 		}
@@ -185,7 +180,7 @@ func (proc *ForkProcess) CheckRestrictedCall(pid int, pregs *unix.PtraceRegs) {
 			proc.ExecUsed = true
 			return
 		}
-		wd, err = readPeekString(pid, uintptr(pregs.Rsi))
+		wd, err = readStringAtAddr(pid, uintptr(pregs.Rsi))
 		proc.TraceCheckRead(pid, wd, pregs)
 
 	default:

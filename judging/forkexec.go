@@ -3,6 +3,7 @@ package judging
 import (
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
 	"github.com/BayviewComputerClub/smoothie-runner/util"
+	"github.com/tklauser/go-sysconf"
 	"golang.org/x/sys/unix"
 	"syscall"
 	"unsafe"
@@ -59,7 +60,9 @@ func (proc *ForkProcess) ForkExec() {
 
 	pid, _, err1 := unix.Syscall6(syscall.SYS_CLONE, uintptr(unix.SIGCHLD), 0, 0, 0, 0, 0)
 
-	if err1 != 0 || pid != 0 { // in parent process
+	if err1 != 0 || pid != 0 {
+		// -=-=- in parent process -=-=-
+
 		syscall.ForkLock.Unlock()
 
 		unix.Close(p[1])
@@ -70,7 +73,7 @@ func (proc *ForkProcess) ForkExec() {
 			return
 		}
 
-		// child returned error code
+		// child returned error code, and sync
 		r1, _, err1 := unix.RawSyscall(syscall.SYS_READ, uintptr(p[0]), uintptr(unsafe.Pointer(&err2)), unsafe.Sizeof(err2))
 		if r1 != unsafe.Sizeof(err2) || err2 != 0 || err1 != 0 {
 			unix.Close(p[0])
@@ -89,12 +92,11 @@ func (proc *ForkProcess) ForkExec() {
 
 		proc.Pid = int(pid)
 		unix.Close(p[0])
-		// TODO read error
 
 		return
 	}
 
-	// child forked process
+	// -=-=- child forked process -=-=-
 
 	if err := unix.Close(p[0]); err != nil {
 		forkLeaveError(pipe, err)
@@ -128,6 +130,11 @@ func (proc *ForkProcess) ForkExec() {
 	if err := unix.Dup2(int(proc.Session.ErrorStream.Fd()), 2) ; err != nil {
 		forkLeaveError(pipe, err)
 		return
+	}
+
+	// close all file descriptors in a brutal fashion :)
+	for i := 3; i < sysconf.SC_OPEN_MAX; i++ {
+		_ = unix.Close(i)
 	}
 
 	// set resource limits
@@ -171,7 +178,6 @@ func (proc *ForkProcess) ForkExec() {
 			forkLeaveError(pipe, err)
 			return
 		}
-
 	}
 
 	// execute process, now replaced by new process

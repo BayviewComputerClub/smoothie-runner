@@ -15,6 +15,7 @@ require (
 	github.com/rs/xid v1.2.1
 	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/stretchr/testify v1.4.0 // indirect
+	github.com/tklauser/go-sysconf v0.0.0-20200125124152-4f5f1f2b970a // indirect
 	golang.org/x/crypto v0.0.0-20200128174031-69ecbb4d6d5d // indirect
 	golang.org/x/mod v0.2.0 // indirect
 	golang.org/x/net v0.0.0-20200114155413-6afb5195e5aa // indirect
