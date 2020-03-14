@@ -12,11 +12,11 @@ func (session *RunnerSession) LoadSeccompFilter() error {
 			Syscalls: []seccomp.SyscallGroup{
 				{ // allowed syscalls
 					Action: seccomp.ActionAllow,
-					Names: proc.Session.SandboxProfile.SyscallAllow,
+					Names: session.SeccompProfile.SyscallAllow,
 				},
 				{ // restricted syscalls
 					Action: seccomp.ActionTrace,
-					Names: proc.Session.SandboxProfile.SyscallTrace,
+					Names: session.SeccompProfile.SyscallTrace,
 				},
 			},
 		},
