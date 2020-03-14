@@ -11,6 +11,10 @@ import (
 	"strings"
 )
 
+var (
+	usePeekRead = false
+)
+
 func isFileInSet(file string, s map[string]bool) bool {
 	if s[file] {
 		return true
@@ -74,12 +78,21 @@ func (proc *ForkProcess) TraceCheckOpen(pid int, name string, flags uint64, preg
 }
 
 func readStringAtAddr(pid int, address uintptr) (string, error) {
-	//return util.ReadPeekString(pid, address)
-	s, err := util.ProcessVmReadVStr(pid, address)
-	if err != nil {
-		if no, ok := err.(unix.Errno); ok {
-			if no == unix.ENOSYS {
-				s, err = util.ReadPeekString(pid, address)
+	var (
+		s string
+		err error
+	)
+	if usePeekRead {
+		s, err = util.ReadPeekString(pid, address)
+	} else {
+		s, err = util.ProcessVmReadVStr(pid, address)
+		if err != nil {
+			if no, ok := err.(unix.Errno); ok {
+				if no == unix.ENOSYS {
+					s, err = util.ReadPeekString(pid, address)
+					usePeekRead = true
+					util.Warn("Unable to use process_vm_readv, switching to ptrace peek read.")
+				}
 			}
 		}
 	}
@@ -112,7 +125,7 @@ func blockCall(pregs *unix.PtraceRegs, pid int) {
 // restrict call if necessary
 // returns whether or not the call should be blocked
 func (proc *ForkProcess) CheckRestrictedCall(pid int, pregs *unix.PtraceRegs) {
-	shared.Debug("Correcting syscall: " + strconv.Itoa(int(pregs.Orig_rax)))
+	shared.Debug("Checking syscall: " + strconv.Itoa(int(pregs.Orig_rax)))
 
 	var (
 		err error

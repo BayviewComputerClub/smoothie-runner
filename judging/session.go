@@ -35,7 +35,6 @@ type GradeSession struct {
 	CaseNum  uint64
 
 	// streams during judging
-	ErrorBuffer  *os.File
 	OutputStream *os.File
 	ErrorStream  *os.File
 	InputStream  *os.File
@@ -68,17 +67,19 @@ type GradeSession struct {
  */
 
 func (session *GradeSession) InitStreams() {
-
 	session.InitIOFiles()
+}
 
-	var err error
-	// stderr buffer
-	session.ErrorBuffer, session.ErrorStream, err = os.Pipe()
+func createStreamFile(loc string) (*os.File, error) {
+	err := ioutil.WriteFile(loc, []byte(""), 0644)
 	if err != nil {
-		util.Warn("stderrpipeinit: " + err.Error())
-		session.StreamResult <- pb.TestCaseResult{Result: shared.OUTCOME_ISE, ResultInfo: err.Error()}
-		return
+		return nil, err
 	}
+	file, err := os.OpenFile(loc, os.O_RDWR, os.ModeAppend) // open with read/write fd
+	if err != nil {
+		return nil, err
+	}
+	return file, nil
 }
 
 /*
@@ -88,23 +89,32 @@ func (session *GradeSession) InitStreams() {
 func (session *GradeSession) InitIOFiles() {
 	name := strconv.FormatInt(time.Now().UnixNano(), 10)
 
+	// os pipes are nice but have a size cap soo
+
 	outputFileLoc := session.JudgingSession.Workspace + "/" + name + ".out"
+	errFileLoc := session.JudgingSession.Workspace + "/" + name + ".err"
 
-	err := ioutil.WriteFile(outputFileLoc, []byte(""), 0644)
+	var err error
+
+	// create empty file for output
+	session.OutputStream, err = createStreamFile(outputFileLoc)
 	if err != nil {
 		util.Warn("outputstream: " + err.Error())
 		session.StreamResult <- pb.TestCaseResult{Result: shared.OUTCOME_ISE, ResultInfo: ""}
 		return
 	}
 
-	session.OutputStream, err = os.OpenFile(outputFileLoc, os.O_RDWR, os.ModeAppend) // open with read/write fd
+	// create empty file for errors
+	session.ErrorStream, err = createStreamFile(errFileLoc)
 	if err != nil {
-		util.Warn("outputstream: " + err.Error())
+		util.Warn("errorstream: " + err.Error())
 		session.StreamResult <- pb.TestCaseResult{Result: shared.OUTCOME_ISE, ResultInfo: ""}
 		return
 	}
 
-	// use opened input
+	session.ErrorStream, err = os.OpenFile(errFileLoc, os.O_RDWR, os.ModeAppend) // open with read/write fd
+
+	// use opened input file from cache
 	session.InputStream = session.CurrentCase.Input
 }
 
@@ -160,7 +170,7 @@ func (session *GradeSession) Timeout() {
  */
 
 func (session *GradeSession) ListenStderr() {
-	buff := bufio.NewReader(session.ErrorBuffer)
+	buff := bufio.NewReader(session.ErrorStream)
 	for {
 		if !util.IsPidRunning(session.Pid) { // if the program has ended
 			break
@@ -255,11 +265,6 @@ func (session *GradeSession) WaitProcState() {
 
 func (session *GradeSession) WaitVerdict() {
 	defer session.CloseStreams()
-	defer func() { // prevent buffer from closing too early
-		if session.ErrorBuffer != nil {
-			session.ErrorBuffer.Close()
-		}
-	}()
 
 	// wait for judging to finish
 	response := <-session.StreamDone
