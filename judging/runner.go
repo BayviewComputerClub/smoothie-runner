@@ -11,7 +11,6 @@ import (
 	"os"
 	"sync/atomic"
 	"syscall"
-	"unsafe"
 )
 
 var (
@@ -198,23 +197,19 @@ func JudgeCase(batchNum uint64, caseNum uint64, session *shared.JudgeSession, re
 		Problem:     session.OriginalRequest.Problem,
 		Solution:    session.OriginalRequest.Solution,
 		CurrentCase: batchCase,
-		Limit:       &session.Limit,
 
 		BatchNum: 		batchNum,
 		CaseNum: 		caseNum,
 
 		Stderr:         "",
-		ExitCode:       0,
 
 		StreamResult:   batchRes,
 		StreamDone:     make(chan CaseReturn),
-		StreamProcEnd:  make(chan bool),
 
-		Command:        session.RunCommand,
-		ExecCommand:    session.CommandFd,
-		ExecArgs:       uintptr(unsafe.Pointer(&session.CommandArgs)),
+		Command:  session.RunCommand,
+		ExecFile: session.CommandFd,
 
-		SandboxProfile: util.SANDBOX_DEFAULT_PROFILE, // TODO
+		SeccompProfile: util.SANDBOX_DEFAULT_PROFILE, // TODO
 	}
 	go gradingSession.StartJudging()
 

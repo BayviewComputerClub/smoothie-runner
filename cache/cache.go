@@ -147,12 +147,12 @@ func GetTestData(problemId string) (*CachedTestData, error) {
 		fType := spl[len(spl)-1]
 		var f *os.File
 
-		if fType == "in" { // input file
+		if fType == "in" { // input file (opened read only for security)
 			f, err = os.Open(path)
 			if err != nil {
 				return err
 			}
-		} else if fType == "out" { // output file
+		} else if fType == "out" { // output file (opened read only for security)
 			f, err = os.Open(path)
 			if err != nil {
 				return err

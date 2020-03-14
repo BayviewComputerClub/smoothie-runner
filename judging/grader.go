@@ -52,14 +52,6 @@ func (grader StrictGrader) CompareStream(session *GradeSession, expectedAnswerFi
 		return
 	}
 
-	// wait until program finishes running, or error is returned
-	select {
-	case <-done:
-		return
-	case <-session.StreamProcEnd:
-		break
-	}
-
 	// move index for reading the file to beginning
 	_, _ = session.OutputStream.Seek(0, 0)
 
@@ -144,7 +136,7 @@ func (grader EndTrimGrader) CompareStream(session *GradeSession, expectedAnswerF
 
 	// loop through to read rune by rune
 	for {
-		if !util.IsPidRunning(session.Pid) { // possibly should move this after all runes are read
+		if !util.IsPidRunning(session.RunnerSession.Pid) { // possibly should move this after all runes are read
 			if expectingEnd { // expected no more text
 				done <- CaseReturn{
 					Result: shared.OUTCOME_AC,

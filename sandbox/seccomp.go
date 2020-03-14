@@ -1,10 +1,8 @@
-package judging
+package sandbox
 
-import (
-	"github.com/elastic/go-seccomp-bpf"
-)
+import "github.com/elastic/go-seccomp-bpf"
 
-func (proc *ForkProcess) LoadSeccompFilter() error {
+func (session *RunnerSession) LoadSeccompFilter() error {
 	// create seccomp filter
 	filter := seccomp.Filter{
 		NoNewPrivs: true,
@@ -14,11 +12,11 @@ func (proc *ForkProcess) LoadSeccompFilter() error {
 			Syscalls: []seccomp.SyscallGroup{
 				{ // allowed syscalls
 					Action: seccomp.ActionAllow,
-					Names: proc.Session.SandboxProfile.SyscallAllow,
+					Names: session.SeccompProfile.SyscallAllow,
 				},
 				{ // restricted syscalls
 					Action: seccomp.ActionTrace,
-					Names: proc.Session.SandboxProfile.SyscallTrace,
+					Names: session.SeccompProfile.SyscallTrace,
 				},
 			},
 		},
