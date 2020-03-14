@@ -19,7 +19,11 @@ func (session *RunnerSession) WaitProcState() {
 		println("WAIT4: ", wstatus) // TODO
 		if err != nil {
 			shared.Debug("wait4: " + err.Error())
-			return err
+			session.InternalResultChan <- RunnerResult{
+				Status: RunnerStatusISE,
+				Error:  err.Error(),
+			}
+			return
 		}
 
 		// check tle
@@ -37,13 +41,14 @@ func (session *RunnerSession) WaitProcState() {
 			return
 		}
 
+		// check program status
 		switch {
-		case wstatus.Exited(): // program exit
+		case wstatus.Exited(): // normal program exit
 			session.ExitCode = wstatus.ExitStatus()
 			// send exit status to grader
 			session.InternalResultChan <- RunnerResult{Status: RunnerStatusOK}
 			return
-		case wstatus.Signaled():
+		case wstatus.Signaled(): // not normal program exit
 			sig := wstatus.Signal()
 			session.ExitCode = int(wstatus.Signal())
 			switch sig {
@@ -52,9 +57,9 @@ func (session *RunnerSession) WaitProcState() {
 			case unix.SIGXFSZ:
 				session.InternalResultChan <- RunnerResult{Status: RunnerStatusOLE}
 			case unix.SIGSYS:
-				session.InternalResultChan <- RunnerResult{Status: RunnerStatusIllegalSyscall}
+				session.InternalResultChan <- RunnerResult{Status: RunnerStatusILL}
 			default:
-				session.InternalResultChan <- RunnerResult{Status: RunnerStatusRuntimeError}
+				session.InternalResultChan <- RunnerResult{Status: RunnerStatusRTE}
 			}
 			return
 		}

@@ -14,12 +14,12 @@ const (
 	RunnerStatusMLE // memory limit exceeded
 	RunnerStatusOLE // output limit exceeded
 
-	RunnerStatusIllegalSyscall
-	RunnerStatusRuntimeError
-	RunnerStatusInternalServerError
+	RunnerStatusILL // illegal syscall
+	RunnerStatusRTE // runtime error
+	RunnerStatusISE // internal server error
 )
 
-type Rlimit struct {
+type RLimit struct {
 	Type int
 	Cur uint64
 	Max uint64
@@ -30,9 +30,16 @@ type RunnerResult struct {
 	Error string
 }
 
+type RunnerSessionResult struct {
+	Status int
+	Error string
+	TimeUsed int64
+	MemoryUsed int64
+}
+
 type RunnerSession struct {
 	// Channel to stream result back (init)
-	ResultChan chan RunnerResult
+	ResultChan chan RunnerSessionResult
 
 	// Internal result stream
 	InternalResultChan chan RunnerResult
@@ -56,7 +63,7 @@ type RunnerSession struct {
 	Workspace string
 
 	// Resource limits with rlimit
-	RLimits []Rlimit
+	RLimits []RLimit
 
 	// Timeout, in seconds (init)
 	TimeLimit time.Duration
@@ -69,12 +76,15 @@ type RunnerSession struct {
 
 	// Exit code
 	ExitCode int
+
+	// Start time
+	StartTime time.Time
 }
 
 func (session *RunnerSession) Start() {
 
 	// init rlimit
-	session.RLimits = []Rlimit {
+	session.RLimits = []RLimit{
 		{
 			Type: unix.RLIMIT_CPU,
 			Cur: uint64(session.TimeLimit.Seconds()),
@@ -95,8 +105,9 @@ func (session *RunnerSession) Start() {
 	go session.WaitForStatus()
 
 	if shared.SANDBOX {
-
+		go session.Trace()
 	} else {
+		session.StartTime = time.Now()
 		go session.WaitProcState()
 	}
 }
