@@ -52,8 +52,6 @@ func (session *GradeSession) InitIOFiles() {
 		return
 	}
 
-	session.ErrorStream, err = os.OpenFile(errFileLoc, os.O_RDWR, os.ModeAppend) // open with read/write fd
-
 	// use opened input file from cache
 	session.InputStream = session.CurrentCase.Input
 }

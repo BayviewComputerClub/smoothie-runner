@@ -63,13 +63,12 @@ func (session *GradeSession) StartJudging() {
 
 	// init pipes
 	session.InitIOFiles()
+	defer session.CloseStreams()
 
 	// runner session
 	session.RunnerSession = sandbox.RunnerSession{
 		ResultChan:         make(chan sandbox.RunnerSessionResult),
 		InternalResultChan: make(chan sandbox.RunnerResult),
-		Pid:                0,
-		Pgid:               0,
 		ExecFile:           session.ExecFile,
 		ExecArgs:           session.Command.Args,
 		ExecEnv:            session.Command.Env,
@@ -79,7 +78,6 @@ func (session *GradeSession) StartJudging() {
 		TimeLimit:          time.Duration(session.Problem.TimeLimit) * time.Second,
 		MemoryLimit:        int64(session.Problem.MemLimit)*1000000,
 		SeccompProfile:     session.SeccompProfile,
-		ExitCode:           0,
 	}
 
 	// initialize file descriptors
@@ -95,14 +93,13 @@ func (session *GradeSession) StartJudging() {
 	session.RunnerResult = <-session.RunnerSession.ResultChan
 
 	// read stderr after process runs
-	stderr, _ := ioutil.ReadAll(session.ErrorStream)
+	stderr, _ := ioutil.ReadFile(session.ErrorStream.Name())
 	session.Stderr = string(stderr)
-
-	fmt.Println(session.Stderr) // TODO
 
 	if session.RunnerResult.Status == sandbox.RunnerStatusOK && session.Stderr == "" {
 		// run the grading session if the runner ran successfully
 		// it will send AC or WA
+		// must run on this goroutine (streams need to remain open for grading)
 		StartGrader(session)
 	} else {
 		// return status otherwise
