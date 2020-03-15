@@ -26,10 +26,11 @@ var (
 			"/dev/urandom":                   true,
 			"/proc/meminfo":                  true,
 			"/etc/localtime":                 true,
+
 			"/usr/lib":                       true,
 			"/usr/lib64":                     true,
 			"/lib":                           true,
-			"/usr/local/lib":                           true,
+			"/usr/local/lib":                 true,
 		},
 		AllowWrite: map[string]bool{
 			"/dev/null": true,
@@ -40,6 +41,12 @@ var (
 			"write",
 			"readv",
 			"writev",
+			"pread64", // maybe?
+			"pwrite64", // maybe?
+			"preadv",
+			"pwritev",
+			"preadv2",
+			"pwritev2",
 			"close",
 			"fstat",
 			"lseek",
@@ -112,24 +119,24 @@ var (
 
 	// compiler profile
 	SANDBOX_COMPILER_PROFILE = SandboxProfile{
-		AllowRead:    map[string]bool{
-			"./": true,
+		AllowRead: map[string]bool{
+			"./":          true,
 			"../runtime/": true,
 			"/etc/oracle/java/usagetracker.properties": true,
-			"/usr/": true,
-			"/lib/": true,
-			"/lib64/": true,
-			"/bin/": true,
-			"/sbin/": true,
+			"/usr/":                    true,
+			"/lib/":                    true,
+			"/lib64/":                  true,
+			"/bin/":                    true,
+			"/sbin/":                   true,
 			"/sys/devices/system/cpu/": true,
-			"/proc/": true,
-			"/etc/timezone": true,
-			"/etc/fpc-2.6.2.cfg.d/": true,
-			"/etc/fpc.cfg": true,
+			"/proc/":                   true,
+			"/etc/timezone":            true,
+			"/etc/fpc-2.6.2.cfg.d/":    true,
+			"/etc/fpc.cfg":             true,
 		},
-		AllowWrite:   map[string]bool{
+		AllowWrite: map[string]bool{
 			"/tmp/": true,
-			"./": true,
+			"./":    true,
 		},
 		SyscallAllow: append(SANDBOX_DEFAULT_PROFILE.SyscallAllow, []string{
 			"gettid", "set_tid_address", "set_robust_list", "futex",
@@ -147,7 +154,6 @@ var (
 		}...),
 		SyscallTrace: SANDBOX_DEFAULT_PROFILE.SyscallTrace,
 	}
-
 )
 
 func init() {

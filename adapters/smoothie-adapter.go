@@ -32,3 +32,7 @@ func CompileAndGetRunCommand(session *shared.JudgeSession) (*exec.Cmd, error) {
 
 	return adapters[session.Language].Compile(session)
 }
+
+func compileHelper(compileCommand *exec.Cmd) error {
+
+}

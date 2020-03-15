@@ -76,11 +76,6 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 		Code:            req.Solution.Code,
 		Language:        req.Solution.Language,
 		OriginalRequest: req,
-		Limit:			 shared.Rlimits{
-			CpuTime: uint64(req.Problem.TimeLimit), // only second precision :/
-			Fsize:   1e9, // 1e9 bytes -> 1 gigabyte
-			Memory:  uint64(req.Problem.MemLimit*1e6), // MB -> bytes
-		},
 	}
 
 	// get test data
