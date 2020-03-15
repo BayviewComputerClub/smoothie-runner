@@ -11,6 +11,5 @@ type JudgeSession struct {
 	Language string
 	OriginalRequest *pb.TestSolutionRequest
 	CommandFd uintptr
-	CommandArgs []*byte
 	RunCommand *exec.Cmd
 }

@@ -26,7 +26,7 @@ func (adapter Java11Adapter) Compile(session *shared.JudgeSession) (*exec.Cmd, e
 		return nil, errors.New(strings.ReplaceAll(string(output), session.Workspace+"/Main.java", ""))
 	}
 
-	c := exec.Command("java", "-Xmx" + strconv.Itoa(int(session.OriginalRequest.Problem.MemLimit/1e3)) + "K", "-Xss128m", "-XX:+UseSerialGC", "-XX:ErrorFile=crash.log", "-XX:MaxMetaspaceSize=128m", "Main")
+	c := exec.Command("java", "-Xmx" + strconv.Itoa(int(session.OriginalRequest.Problem.MemLimit)) + "M", "-Xss128m", "-XX:+UseSerialGC", "-XX:ErrorFile=crash.log", "-XX:MaxMetaspaceSize=128m", "Main")
 	c.Env = append(c.Env, "MALLOC_ARENAS_MAX=1")
 	c.Dir = session.Workspace
 

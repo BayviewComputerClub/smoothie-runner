@@ -4,9 +4,18 @@ import (
 	"bytes"
 	"golang.org/x/sys/unix"
 	"os"
+	"os/exec"
 	"syscall"
 	"unsafe"
 )
+
+func GetPtrsFromCmd(cmd *exec.Cmd) (*os.File, error) {
+	f, err := os.Open(cmd.Path)
+	if err != nil {
+		return nil, err
+	}
+	return f, nil
+}
 
 func IsPidRunning(pid int) bool {
 	process, err := os.FindProcess(pid)

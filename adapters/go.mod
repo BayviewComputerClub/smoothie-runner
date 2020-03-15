@@ -6,4 +6,10 @@ replace github.com/BayviewComputerClub/smoothie-runner/shared => ../shared
 
 replace github.com/BayviewComputerClub/smoothie-runner/sandbox => ../sandbox
 
-require github.com/BayviewComputerClub/smoothie-runner/shared v0.0.0-00010101000000-000000000000
+replace github.com/BayviewComputerClub/smoothie-runner/util => ../util
+
+require (
+	github.com/BayviewComputerClub/smoothie-runner/sandbox v0.0.0-20200315011139-7b50a3d3e486 // indirect
+	github.com/BayviewComputerClub/smoothie-runner/shared v0.0.0-20200315011139-7b50a3d3e486
+	github.com/BayviewComputerClub/smoothie-runner/util v0.0.0-20200315011139-7b50a3d3e486 // indirect
+)

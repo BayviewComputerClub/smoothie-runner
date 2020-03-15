@@ -36,7 +36,7 @@ func (session *RunnerSession) WaitProcState() {
 		// check memory
 		// maxrss - KB, memlimit - MB
 		session.MemoryUsed = rusage.Maxrss
-		if session.MemoryLimit < rusage.Maxrss/1e3 {
+		if session.MemoryLimit > 0 && session.MemoryLimit*1000 < rusage.Maxrss {
 			shared.Debug("MLE")
 			session.InternalResultChan <- RunnerResult{Status: RunnerStatusMLE}
 			return

@@ -10,7 +10,6 @@ import (
 	"github.com/rs/xid"
 	"os"
 	"sync/atomic"
-	"syscall"
 )
 
 var (
@@ -112,23 +111,16 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 		return
 	}
 
+	var f *os.File
 	// get exec command pointers
-	f, err := os.Open(session.RunCommand.Path)
+	f, err = util.GetPtrsFromCmd(session.RunCommand)
 	if err != nil {
-		util.Warn("commandfileopen: " + err.Error())
+		util.Warn("getptrsfromcmd: " + err.Error())
 		sendISE(err, res)
 		return
 	}
 	defer f.Close() // must close AFTER the testing is finished
 	session.CommandFd = f.Fd()
-
-	// command args ptr
-	session.CommandArgs, err = syscall.SlicePtrFromStrings(append(session.RunCommand.Args, "NULL"))
-	if err != nil {
-		util.Warn("commandbyteparse: " + err.Error())
-		sendISE(err, res)
-		return
-	}
 
 	// loop over test batches and cases
 	for _, batch := range testData.Batches {

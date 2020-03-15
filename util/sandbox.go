@@ -1,14 +1,18 @@
 package util
 
 type SandboxProfile struct {
-	AllowRead  map[string]bool
+	AllowRead  map[string]bool // will include AllowWrite entries
 	AllowWrite map[string]bool
+
+	DisallowRead  map[string]bool // TODO will automatically include DisallowWrite entries
+	DisallowWrite map[string]bool // TODO
 
 	SyscallAllow []string
 	SyscallTrace []string // restricted calls
 }
 
-// "inspired" by https://github.com/criyle/go-sandbox/tree/master/config
+// "inspired" by https://github.com/DMOJ/judge-server/blob/master/dmoj/cptbox/isolate.py
+// and https://github.com/criyle/go-sandbox/tree/master/config
 // ~~~ thx there's no way i'm going through all that ~~~
 var (
 
@@ -27,73 +31,105 @@ var (
 			"/proc/meminfo":                  true,
 			"/etc/localtime":                 true,
 
-			"/usr/lib":                       true,
-			"/usr/lib64":                     true,
-			"/lib":                           true,
-			"/usr/local/lib":                 true,
+			"/usr/lib":       true,
+			"/usr/lib64":     true,
+			"/lib":           true,
+			"/usr/local/lib": true,
 		},
 		AllowWrite: map[string]bool{
 			"/dev/null": true,
 		},
+		DisallowRead: map[string]bool{
+
+		},
+		DisallowWrite: map[string]bool{
+
+		},
 		SyscallAllow: []string{
 			// file access through fd
 			"read",
-			"write",
 			"readv",
+			"pread64",
+			"write",
 			"writev",
-			"pread64", // maybe?
-			"pwrite64", // maybe?
-			"preadv",
-			"pwritev",
-			"preadv2",
-			"pwritev2",
+			"statfs",
+			"getpgrp",
+			"restart_syscall",
+			"select",
+			"modify_ldt",
+			"ppoll",
+
+			"sched_getaffinity",
+			"sched_getparam",
+			"sched_getscheduler",
+			"sched_get_priority_min",
+			"sched_get_priority_max",
+			"timerfd_create",
+			"timer_create",
+			"timer_settime",
+			"timer_delete",
+
+			"rt_sigreturn",
+			"nanosleep",
+			"sysinfo",
+			"getrandom",
+
 			"close",
-			"fstat",
-			"lseek",
 			"dup",
 			"dup2",
 			"dup3",
-			"ioctl",
-			"fcntl",
-			"fadvise64",
-
-			// memory action
+			"fstat",
 			"mmap",
+			"mremap",
 			"mprotect",
+			"madvise",
 			"munmap",
 			"brk",
-			"mremap",
-			"msync",
-			"mincore",
-			"madvise",
-
-			// signal action
+			"fcntl",
+			"arch_prctl",
+			"set_tid_address",
+			"set_robust_list",
+			"futex",
 			"rt_sigaction",
 			"rt_sigprocmask",
-			"rt_sigreturn",
-			"rt_sigpending",
-			"sigaltstack",
-
-			// get current work dir
+			"getrlimit",
+			"ioctl",
 			"getcwd",
+			"geteuid",
+			"getuid",
+			"getegid",
+			"getgid",
+			"getdents",
+			"lseek",
+			"getrusage",
+			"sigaltstack",
+			"pipe",
+			"pipe2",
+			"clock_gettime",
+			"clock_getres",
+			"gettimeofday",
+			"getpid",
+			"getppid",
+			"sched_yield",
 
-			// process exit
+			"clone",
 			"exit",
 			"exit_group",
+			"gettid",
 
-			// others
-			"arch_prctl",
-			"gettimeofday",
-			"getrlimit",
-			"getrusage",
+			// extra
+			"fadvise64",
+
+			"msync",
+			"mincore",
+
+			"rt_sigpending",
+
 			"times",
 			"time",
-			"clock_gettime",
-			"restart_syscall",
-			"futex", // todo
 		},
 		SyscallTrace: []string{
-			// execute file
+			// execute initial file (then blocked)
 			"execve",
 			"execveat",
 
@@ -112,6 +148,7 @@ var (
 			// permission check
 			"lstat",
 			"stat",
+
 			"access",
 			"faccessat",
 		},
@@ -137,6 +174,18 @@ var (
 		AllowWrite: map[string]bool{
 			"/tmp/": true,
 			"./":    true,
+		},
+		DisallowRead: map[string]bool{
+			"/dev/null": true,
+			"/dev/tty": true,
+			"/dev/zero": true,
+			"/dev/random": true,
+		},
+		DisallowWrite: map[string]bool{
+			"/etc/nsswitch.conf": true,
+			"/etc/resolv.conf":   true,
+			"/etc/passwd":        true,
+			"/etc/malloc.conf":   true,
 		},
 		SyscallAllow: append(SANDBOX_DEFAULT_PROFILE.SyscallAllow, []string{
 			"gettid", "set_tid_address", "set_robust_list", "futex",

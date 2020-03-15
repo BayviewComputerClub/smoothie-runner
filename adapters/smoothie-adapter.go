@@ -2,8 +2,11 @@ package adapters
 
 import (
 	"errors"
+	"github.com/BayviewComputerClub/smoothie-runner/sandbox"
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
+	"github.com/BayviewComputerClub/smoothie-runner/util"
 	"os/exec"
+	"time"
 )
 
 type SmoothieAdapter interface {
@@ -33,6 +36,31 @@ func CompileAndGetRunCommand(session *shared.JudgeSession) (*exec.Cmd, error) {
 	return adapters[session.Language].Compile(session)
 }
 
-func compileHelper(compileCommand *exec.Cmd) error {
+// run compile command with sandbox
+func sandboxCompileHelper(compileCommand *exec.Cmd, sandboxProfile util.SandboxProfile) (*sandbox.RunnerSessionResult, error) {
+	session := sandbox.RunnerSession{
+		ResultChan:         make(chan sandbox.RunnerSessionResult),
+		InternalResultChan: make(chan sandbox.RunnerResult),
+		ExecFile:           0,
+		ExecArgs:           compileCommand.Args,
+		ExecEnv:            compileCommand.Env,
+		ExecUsed:           false,
+		Files:              make(map[int]uintptr),
+		Workspace:          compileCommand.Dir,
+		RLimits:            nil,
+		TimeLimit:          30 * time.Second, // set static compile time limit to 30 seconds
+		MemoryLimit:        1e9, // set static compile memory limit to 1GB
+		SeccompProfile:     sandboxProfile,
+	}
 
+	f, err := util.GetPtrsFromCmd(compileCommand)
+	if err != nil {
+		return nil, err
+	}
+	session.ExecFile = f.Fd()
+	defer f.Close()
+
+	go session.Start()
+	res := <-session.ResultChan
+	return &res, nil
 }
