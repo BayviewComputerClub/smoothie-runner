@@ -1,7 +1,6 @@
 package judging
 
 import (
-	"bufio"
 	pb "github.com/BayviewComputerClub/smoothie-runner/protocol/runner"
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
 	"github.com/BayviewComputerClub/smoothie-runner/util"
@@ -10,25 +9,6 @@ import (
 	"strconv"
 	"time"
 )
-
-/*
- * Dump stderr to session
- */
-
-func (session *GradeSession) ListenStderr() {
-	buff := bufio.NewReader(session.ErrorStream)
-	for {
-		if !util.IsPidRunning(session.RunnerSession.Pid) { // if the program has ended
-			break
-		}
-
-		c, _, err := buff.ReadRune()
-		if err != nil {
-			continue
-		}
-		session.Stderr += string(c) // append to stderr
-	}
-}
 
 func createStreamFile(loc string) (*os.File, error) {
 	err := ioutil.WriteFile(loc, []byte(""), 0644)

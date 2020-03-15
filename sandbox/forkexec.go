@@ -68,8 +68,8 @@ func (session *RunnerSession) ForkExec() error {
 	context.Pid, _, err1 = unix.Syscall6(syscall.SYS_CLONE, uintptr(unix.SIGCHLD), 0, 0, 0, 0, 0)
 
 	if err1 != 0 || context.Pid != 0 {
-		util.Warn("forkexec clone: " + err1.Error())
 		if err1 != 0 {
+			util.Warn("forkexec clone: " + err1.Error())
 			return err1
 		}
 		// -=-=- in parent process -=-=-

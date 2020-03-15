@@ -18,6 +18,8 @@ replace github.com/BayviewComputerClub/smoothie-runner/protocol/test-data => ../
 
 replace github.com/BayviewComputerClub/smoothie-runner/judging => ../judging
 
+replace github.com/BayviewComputerClub/smoothie-runner/sandbox => ../sandbox
+
 replace github.com/BayviewComputerClub/smoothie-runner/util => ../util
 
 replace github.com/BayviewComputerClub/smoothie-runner/shared => ../shared

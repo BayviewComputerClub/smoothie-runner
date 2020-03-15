@@ -6,7 +6,7 @@ require (
 	github.com/BayviewComputerClub/smoothie-runner/adapters v0.0.0-20191004210318-697ce8368920
 	github.com/BayviewComputerClub/smoothie-runner/cache v0.0.0-20191005014351-73e6f012bacd
 	github.com/BayviewComputerClub/smoothie-runner/protocol/runner v0.0.0-20200201204513-82f95cf7ffdf
-	github.com/BayviewComputerClub/smoothie-runner/sandbox v0.0.0-00010101000000-000000000000
+	github.com/BayviewComputerClub/smoothie-runner/sandbox v0.0.0-20200314222924-d55085e1ce65
 	github.com/BayviewComputerClub/smoothie-runner/shared v0.0.0-20191005014351-73e6f012bacd
 	github.com/BayviewComputerClub/smoothie-runner/util v0.0.0-20191005014351-73e6f012bacd
 	github.com/kr/pretty v0.2.0 // indirect

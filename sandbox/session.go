@@ -80,7 +80,12 @@ type RunnerSession struct {
 
 	// Start time
 	StartTime time.Time
+
+	// Max memory allocated at a point (kb)
+	MemoryUsed int64
 }
+
+// TODO kill function for timeouts to use
 
 func (session *RunnerSession) Start() {
 
@@ -103,8 +108,19 @@ func (session *RunnerSession) Start() {
 		},
 	}
 
+	// listen on channel
 	go session.WaitForStatus()
 
+	// start child process
+	err := session.ForkExec()
+	if err != nil {
+		session.InternalResultChan <- RunnerResult{
+			Status: RunnerStatusISE,
+			Error:  err.Error(),
+		}
+	}
+
+	// check for process state change
 	if shared.SANDBOX {
 		go session.Trace()
 	} else {
@@ -114,6 +130,7 @@ func (session *RunnerSession) Start() {
 }
 
 func (session *RunnerSession) WaitForStatus() {
+	// receives when child is finished
 	res := <-session.InternalResultChan
 
 	if util.IsPidRunning(session.Pid) {
@@ -123,10 +140,11 @@ func (session *RunnerSession) WaitForStatus() {
 		unix.Wait4(session.Pid, &wstatus, unix.WALL|unix.WNOHANG, nil) // collect zombie
 	}
 
+	// send result to result channel
 	session.ResultChan <- RunnerSessionResult{
 		Status:     res.Status,
 		Error:      res.Error,
 		TimeUsed:   time.Since(session.StartTime),
-		MemoryUsed: 0, // TODO
+		MemoryUsed: session.MemoryUsed,
 	}
 }

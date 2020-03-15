@@ -16,9 +16,12 @@ func (session *RunnerSession) Trace() {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
+	session.StartTime = time.Now()
+
 	var (
 		err    error
 		traced = make(map[int]bool)
+		pid    int
 	)
 
 	defer func() {
@@ -42,110 +45,94 @@ func (session *RunnerSession) Trace() {
 		rusage unix.Rusage
 	)
 
-	shared.Debug(fmt.Sprintf("wait4: now tracing %v %v", ws.Stopped(), session.Pid))
+	shared.Debug(fmt.Sprintf("wait4: now tracing %v", session.Pid))
 
 	// trace each syscall
 	for {
-		pid, err := unix.Wait4(-session.Pgid, &ws, unix.WALL, &rusage)
+		if session.ExecUsed {
+			pid, err = unix.Wait4(-session.Pgid, &ws, unix.WALL, &rusage)
+		} else {
+			pid, err = unix.Wait4(session.Pgid, &ws, unix.WALL, &rusage)
+		}
+
 		if err != nil {
 			util.Warn("wait4 error: " + err.Error())
 			session.InternalResultChan <- RunnerResult{Status: RunnerStatusISE, Error: err.Error()}
 			return
 		}
 
-		if session.ExecUsed {
-			if session.traceOnce(pid, ws, rusage, traced) {
-				return
-			}
-		} else {
-			if session.traceOncePreExec(pid, ws, rusage) {
-				return
-			}
+		if session.traceOnce(pid, ws, rusage, traced) {
+			return
 		}
 	}
 
 }
 
-// check status before sandboxed process starts
-func (session *RunnerSession) traceOncePreExec(pid int, ws unix.WaitStatus, rusage unix.Rusage) bool {
-	var err error
-
-	switch {
-	case ws.Exited(): // after signal or stop
-		session.InternalResultChan <- RunnerResult{Status: RunnerStatusISE, Error: "Child process exited before exec"}
-		return true
-	case ws.Signaled():
-		err := unix.PtraceCont(pid, int(ws.Signal()))
-		if err != nil {
-			util.Warn("ptracecont signaled: " + err.Error())
-			session.InternalResultChan <- RunnerResult{Status: RunnerStatusISE, Error: err.Error()}
-			return true
-		}
-	case ws.Stopped():
-		switch ws.StopSignal() {
-		case unix.SIGXCPU:
-			session.InternalResultChan <- RunnerResult{Status: RunnerStatusTLE}
-			return true
-		case unix.SIGXFSZ:
-			session.InternalResultChan <- RunnerResult{Status: RunnerStatusOLE}
-			return true
-		}
-
-		err = unix.PtraceCont(pid, int(ws.StopSignal()))
-		if err != nil {
-			util.Warn("ptracecont signaled: " + err.Error())
-			session.InternalResultChan <- RunnerResult{Status: RunnerStatusISE, Error: err.Error()}
-			return true
-		}
-	}
-	return false
-}
-
-// check status after sandboxed process starts
+// check status
 func (session *RunnerSession) traceOnce(pid int, ws unix.WaitStatus, rusage unix.Rusage, traced map[int]bool) bool {
 	var err error
 
-	// check tle
-	if session.TimeLimit < time.Duration(rusage.Utime.Nano()) {
-		shared.Debug("TLE")
-		session.InternalResultChan <- RunnerResult{Status: RunnerStatusTLE}
-		return true
-	}
+	if pid == session.Pgid {
+		// check tle
+		if session.TimeLimit < time.Duration(rusage.Utime.Nano()) {
+			shared.Debug("TLE")
+			session.InternalResultChan <- RunnerResult{Status: RunnerStatusTLE}
+			return true
+		}
 
-	// check memory
-	// maxrss - KB, memlimit - MB
-	if session.MemoryLimit < rusage.Maxrss/1e3 {
-		shared.Debug("MLE")
-		session.InternalResultChan <- RunnerResult{Status: RunnerStatusMLE}
-		return true
+		// check memory
+		// maxrss - KB, memlimit - MB
+		session.MemoryUsed = rusage.Maxrss
+		if session.MemoryLimit < rusage.Maxrss/1e3 {
+			shared.Debug("MLE")
+			session.InternalResultChan <- RunnerResult{Status: RunnerStatusMLE}
+			return true
+		}
 	}
 
 	// check process status
 	switch {
 	case ws.Exited(): // process exit (after signal or stop)
 		delete(traced, pid) // remove from traced processes
-
 		shared.Debug("tracer: process exited with " + strconv.Itoa(ws.ExitStatus()))
-		session.ExitCode = ws.ExitStatus()
-		// send exit status to grader
-		session.InternalResultChan <- RunnerResult{Status: RunnerStatusOK}
+
+		if pid == session.Pgid {
+			if session.ExecUsed {
+				session.ExitCode = ws.ExitStatus()
+				// send exit status to grader
+				session.InternalResultChan <- RunnerResult{Status: RunnerStatusOK}
+			} else {
+				session.InternalResultChan <- RunnerResult{Status: RunnerStatusISE, Error: "child process exit before exec"}
+			}
+		}
 		return true
 
 	case ws.Signaled():
-		delete(traced, pid) // remove from traced processes
+		shared.Debug("tracer: signaled " + strconv.Itoa(int(ws.Signal())))
 
-		// check exit status
-		sig := ws.Signal()
-		session.ExitCode = int(ws.Signal())
-		switch sig {
-		case unix.SIGXCPU, unix.SIGKILL:
-			session.InternalResultChan <- RunnerResult{Status: RunnerStatusTLE}
-		case unix.SIGXFSZ:
-			session.InternalResultChan <- RunnerResult{Status: RunnerStatusOLE}
-		case unix.SIGSYS:
-			session.InternalResultChan <- RunnerResult{Status: RunnerStatusILL}
-		default:
-			session.InternalResultChan <- RunnerResult{Status: RunnerStatusRTE}
+		if pid == session.Pgid { // in child
+			delete(traced, pid) // remove from traced processes
+			// check exit status
+			sig := ws.Signal()
+			session.ExitCode = int(ws.Signal())
+			switch sig {
+			case unix.SIGXCPU, unix.SIGKILL:
+				session.InternalResultChan <- RunnerResult{Status: RunnerStatusTLE}
+			case unix.SIGXFSZ:
+				session.InternalResultChan <- RunnerResult{Status: RunnerStatusOLE}
+			case unix.SIGSYS:
+				session.InternalResultChan <- RunnerResult{Status: RunnerStatusILL}
+			default:
+				session.InternalResultChan <- RunnerResult{Status: RunnerStatusRTE}
+			}
+			return true
+		} else { // before exec
+			err := unix.PtraceCont(pid, int(ws.Signal()))
+			if err != nil {
+				util.Warn("ptracecont signaled: " + err.Error())
+				session.InternalResultChan <- RunnerResult{Status: RunnerStatusISE, Error: err.Error()}
+				return true
+			}
 		}
 
 	case ws.Stopped():

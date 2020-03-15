@@ -7,6 +7,7 @@ import (
 	"github.com/BayviewComputerClub/smoothie-runner/sandbox"
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
 	"github.com/BayviewComputerClub/smoothie-runner/util"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"runtime"
@@ -76,7 +77,7 @@ func (session *GradeSession) StartJudging() {
 		Files:              make(map[int]uintptr),
 		Workspace:          session.Command.Dir,
 		TimeLimit:          time.Duration(session.Problem.TimeLimit) * time.Second,
-		MemoryLimit:        int64(session.Problem.MemLimit),
+		MemoryLimit:        int64(session.Problem.MemLimit)*1000000,
 		SeccompProfile:     session.SeccompProfile,
 		ExitCode:           0,
 	}
@@ -87,13 +88,19 @@ func (session *GradeSession) StartJudging() {
 	session.RunnerSession.Files[2] = session.ErrorStream.Fd()
 
 	go session.RunnerSession.Start()
-	go session.ListenStderr() // dump stderr to session
 	go session.WaitVerdict()
 	go session.Timeout()
 
+	// wait until child processes finish
 	session.RunnerResult = <-session.RunnerSession.ResultChan
 
-	if session.RunnerResult.Status == sandbox.RunnerStatusOK {
+	// read stderr after process runs
+	stderr, _ := ioutil.ReadAll(session.ErrorStream)
+	session.Stderr = string(stderr)
+
+	fmt.Println(session.Stderr) // TODO
+
+	if session.RunnerResult.Status == sandbox.RunnerStatusOK && session.Stderr == "" {
 		// run the grading session if the runner ran successfully
 		// it will send AC or WA
 		StartGrader(session)
@@ -102,6 +109,14 @@ func (session *GradeSession) StartJudging() {
 		ret := CaseReturn{
 			Result:     "",
 			ResultInfo: session.RunnerResult.Error,
+		}
+
+		// deal with any output in stderr
+		if session.Stderr != "" {
+			ret = CaseReturn{
+				Result:     shared.OUTCOME_RTE,
+				ResultInfo: session.Stderr,
+			}
 		}
 
 		switch session.RunnerResult.Status {
