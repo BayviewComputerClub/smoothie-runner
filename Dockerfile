@@ -1,7 +1,7 @@
 FROM golang:1.13.4-buster
 
 ENV PORT=6821
-ENV MAXTHREADS=4
+ENV MAX_THREADS=1
 ENV TESTING_DIR=testing-sessions
 ENV DEBUG=false
 ENV SANDBOX=true

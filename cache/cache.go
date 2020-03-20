@@ -143,6 +143,10 @@ func GetTestData(problemId string) (*CachedTestData, error) {
 
 	// loop files in problem cache directory
 	err := filepath.Walk(folderName, func(path string, info os.FileInfo, err error) error {
+		if info == nil {
+			return nil
+		}
+
 		spl := strings.Split(info.Name(), ".")
 		fType := spl[len(spl)-1]
 		var f *os.File
