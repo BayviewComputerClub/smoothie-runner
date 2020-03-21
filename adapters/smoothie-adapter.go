@@ -49,7 +49,9 @@ func sandboxCompileHelper(compileCommand *exec.Cmd, sandboxProfile util.SandboxP
 		Workspace:          compileCommand.Dir,
 		RLimits:            nil,
 		TimeLimit:          30 * time.Second, // set static compile time limit to 30 seconds
-		MemoryLimit:        1e9, // set static compile memory limit to 1GB
+		MemoryLimit:        1e9,              // set static compile memory limit to 1GB
+		FSizeLimit:         -1,				  // no file create limit
+		NProcLimit:         -1, 			  // no process limit
 		SeccompProfile:     sandboxProfile,
 	}
 

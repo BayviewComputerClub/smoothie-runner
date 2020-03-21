@@ -83,7 +83,7 @@ func (session *RunnerSession) traceOnce(pid int, ws unix.WaitStatus, rusage unix
 		// check memory
 		// maxrss - KB, memlimit - MB
 		session.MemoryUsed = rusage.Maxrss
-		if session.MemoryLimit > 0 && session.MemoryLimit*1000 < rusage.Maxrss {
+		if session.MemoryLimit > 0 && session.MemoryLimit*1024 < uint64(rusage.Maxrss) {
 			shared.Debug("MLE")
 			session.InternalResultChan <- RunnerResult{Status: RunnerStatusMLE}
 			return true

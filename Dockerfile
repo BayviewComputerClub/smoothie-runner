@@ -6,6 +6,7 @@ ENV TESTING_DIR=testing-sessions
 ENV DEBUG=false
 ENV SANDBOX=true
 ENV CLEANUP_SESSIONS=true
+ENV RLIMITS=true
 
 EXPOSE $PORT
 

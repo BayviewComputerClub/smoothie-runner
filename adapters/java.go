@@ -16,6 +16,9 @@ func (adapter Java11Adapter) GetName() string {
 }
 
 func (adapter Java11Adapter) Compile(session *shared.JudgeSession) (*exec.Cmd, error) {
+	session.FSizeLimit = 64 // dump file
+	session.NProcLimit = -1 // infinite threads (jvm)
+
 	err := ioutil.WriteFile(session.Workspace + "/Main.java", []byte(session.Code), 0644)
 	if err != nil {
 		return nil, err

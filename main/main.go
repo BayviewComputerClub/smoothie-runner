@@ -44,6 +44,7 @@ func init() {
 	shared.DEBUG = getEnv("DEBUG", "false") == "true"
 	shared.SANDBOX = getEnv("SANDBOX", "true") == "true"
 	shared.CLEANUP_SESSIONS = getEnv("CLEANUP_SESSIONS", "true") == "true"
+	shared.RLIMITS = getEnv("RLIMITS", "true") == "true"
 }
 
 // entry point

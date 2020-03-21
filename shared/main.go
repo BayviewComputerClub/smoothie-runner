@@ -13,6 +13,7 @@ var (
 	DEBUG            bool
 	SANDBOX          bool
 	CLEANUP_SESSIONS bool
+	RLIMITS			 bool
 
 	TasksToBeDone = new(int64)
 	TasksInQueue  = new(int64)

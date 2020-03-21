@@ -13,6 +13,7 @@ smoothie-runner is configured through environment variables, because (¬‿¬)
 * DEBUG - Whether or not to enable debug messages
 * SANDBOX - Whether or not to enable sandboxing with ptrace & seccomp
 * CLEANUP_SESSIONS - Whether or not to cleanup sessions after they are finished.
+* RLIMITS - Whether or not resource limits should be applied.
 
 ## Running
 It is highly recommended to run smoothie-runner in Docker. You can also run it outside of a container, provided that it is on a Linux based operating system (kernel 3.19 or later).

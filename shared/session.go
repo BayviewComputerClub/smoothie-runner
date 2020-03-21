@@ -12,4 +12,8 @@ type JudgeSession struct {
 	OriginalRequest *pb.TestSolutionRequest
 	CommandFd uintptr
 	RunCommand *exec.Cmd
+
+	// limits set by adapters
+	FSizeLimit int64
+	NProcLimit int64
 }

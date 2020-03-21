@@ -86,9 +86,9 @@ func readStringAtAddr(pid int, address uintptr) (string, error) {
 		s string
 		err error
 	)
-	if usePeekRead {
+	/*if usePeekRead { switch to just using process_vm_readv if possible at all times
 		s, err = util.ReadPeekString(pid, address)
-	} else {
+	} else {*/
 		s, err = util.ProcessVmReadVStr(pid, address)
 		if err != nil {
 			if no, ok := err.(unix.Errno); ok {
@@ -98,7 +98,7 @@ func readStringAtAddr(pid int, address uintptr) (string, error) {
 					util.Warn("Unable to use process_vm_readv, switching to ptrace peek read.")
 				}
 			}
-		}
+		//}
 	}
 	return s, err
 }

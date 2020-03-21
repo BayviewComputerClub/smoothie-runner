@@ -52,7 +52,6 @@ type GradeSession struct {
 	RunnerResult  sandbox.RunnerSessionResult
 }
 
-
 /*
  * Run to start judging
  */
@@ -76,7 +75,9 @@ func (session *GradeSession) StartJudging() {
 		Files:              make(map[int]uintptr),
 		Workspace:          session.Command.Dir,
 		TimeLimit:          time.Duration(session.Problem.TimeLimit) * time.Second,
-		MemoryLimit:        int64(session.Problem.MemLimit)*1000000,
+		MemoryLimit:        uint64(session.Problem.MemLimit) * 1024 * 1024,
+		FSizeLimit:			session.JudgingSession.FSizeLimit,
+		NProcLimit:			session.JudgingSession.NProcLimit,
 		SeccompProfile:     session.SeccompProfile,
 	}
 

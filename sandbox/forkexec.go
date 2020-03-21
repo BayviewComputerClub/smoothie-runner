@@ -154,19 +154,23 @@ func (session *RunnerSession) ForkExecChild(context ForkExecContext) {
 		}
 	}
 
-	// close all file descriptors in a brutal fashion :)
-	for i := 0; i < sysconf.SC_OPEN_MAX; i++ {
-		// check if file descriptor is not used
-		if _, ok := session.Files[i]; !ok {
-			_ = unix.Close(i)
+	if shared.SANDBOX {
+		// close all file descriptors in a brutal fashion :)
+		for i := 0; i < sysconf.SC_OPEN_MAX; i++ {
+			// check if file descriptor is not used
+			if _, ok := session.Files[i]; !ok {
+				_ = unix.Close(i)
+			}
 		}
 	}
 
 	// set resource limits
-	err = session.SetRlimits()
-	if err != nil {
-		forkLeaveError(pipe, err)
-		return
+	if shared.RLIMITS {
+		err = session.SetRlimits()
+		if err != nil {
+			forkLeaveError(pipe, err)
+			return
+		}
 	}
 
 	// sync with parent
@@ -182,6 +186,7 @@ func (session *RunnerSession) ForkExecChild(context ForkExecContext) {
 		forkLeaveError(pipe, err1)
 		return
 	}
+
 	if shared.SANDBOX {
 		// ptrace
 		_, _, err1 = unix.RawSyscall(unix.SYS_PTRACE, uintptr(unix.PTRACE_TRACEME), 0, 0)
@@ -198,7 +203,8 @@ func (session *RunnerSession) ForkExecChild(context ForkExecContext) {
 		}
 
 		// seccomp
-		err = session.LoadSeccompFilter() // calls prctl set no privs as well
+		// calls prctl PR_SET_NO_NEW_PRIVS as well
+		err = session.LoadSeccompFilter()
 		if err != nil {
 			forkLeaveError(pipe, err)
 			return

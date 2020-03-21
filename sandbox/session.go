@@ -70,7 +70,13 @@ type RunnerSession struct {
 	TimeLimit time.Duration
 
 	// Maximum memory, in bytes (init)
-	MemoryLimit int64
+	MemoryLimit uint64
+
+	// Maximum size of new files a process can create (init)
+	FSizeLimit int64
+
+	// Maximum number of processes that can be created (init)
+	NProcLimit int64
 
 	// Seccomp profile (init)
 	SeccompProfile util.SandboxProfile
@@ -88,25 +94,8 @@ type RunnerSession struct {
 // TODO kill function for timeouts to use
 
 func (session *RunnerSession) Start() {
-
-	// init rlimit
-	session.RLimits = []RLimit{
-		{
-			Type: unix.RLIMIT_CPU,
-			Cur: uint64(session.TimeLimit.Seconds()),
-			Max: uint64(session.TimeLimit.Seconds()),
-		},
-		{
-			Type: unix.RLIMIT_FSIZE,
-			Cur: uint64(session.MemoryLimit),
-			Max: uint64(session.MemoryLimit),
-		},
-		{
-			Type: unix.RLIMIT_AS, // TODO output limit
-			Cur: uint64(session.MemoryLimit),
-			Max: uint64(session.MemoryLimit),
-		},
-	}
+	// configure rlimits
+	session.InitRLimits()
 
 	// listen on channel
 	go session.WaitForStatus()
@@ -118,6 +107,7 @@ func (session *RunnerSession) Start() {
 			Status: RunnerStatusISE,
 			Error:  err.Error(),
 		}
+		return
 	}
 
 	// check for process state change
