@@ -83,22 +83,19 @@ func blockCall(pregs *unix.PtraceRegs, pid int) {
 // read file names
 func readStringAtAddr(pid int, address uintptr) (string, error) {
 	var (
-		s string
+		s   string
 		err error
 	)
-	/*if usePeekRead { switch to just using process_vm_readv if possible at all times
-		s, err = util.ReadPeekString(pid, address)
-	} else {*/
-		s, err = util.ProcessVmReadVStr(pid, address)
-		if err != nil {
-			if no, ok := err.(unix.Errno); ok {
-				if no == unix.ENOSYS {
-					s, err = util.ReadPeekString(pid, address)
-					usePeekRead = true
-					util.Warn("Unable to use process_vm_readv, switching to ptrace peek read.")
-				}
+	// process_vm_readv if possible at all times
+	s, err = util.ProcessVmReadVStr(pid, address)
+	if err != nil {
+		if no, ok := err.(unix.Errno); ok {
+			if no == unix.ENOSYS {
+				s, err = util.ReadPeekString(pid, address)
+				usePeekRead = true
+				util.Warn("Unable to use process_vm_readv, switching to ptrace peek read.")
 			}
-		//}
+		}
 	}
 	return s, err
 }

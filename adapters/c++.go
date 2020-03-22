@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"unicode/utf8"
 )
 
 func CppHelper(session *shared.JudgeSession, std string) (*exec.Cmd, error) {
@@ -44,8 +45,17 @@ func CppHelper(session *shared.JudgeSession, std string) (*exec.Cmd, error) {
 	}
 	io.ReadFull(f, dat)
 
+	// fix utf8 (for grpc)
+	errstr := strings.Map(func(r rune) rune {
+		if r == utf8.RuneError {
+			return -1
+		}
+		return r
+	}, string(dat))
+
+	// send error message
 	if rsr.Status != sandbox.RunnerStatusOK || rsr.ExitCode != 0 {
-		return nil, errors.New(strings.ReplaceAll(string(dat), session.Workspace+"/main.cpp", "") + " : " + rsr.Error)
+		return nil, errors.New(strings.ReplaceAll(errstr, session.Workspace+"/main.cpp", "") + " : " + rsr.Error)
 	}
 
 	// return exec command
