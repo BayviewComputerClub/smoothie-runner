@@ -1,4 +1,4 @@
-FROM golang:1.13.4-buster
+FROM golang:1.14.1-buster
 
 ENV PORT=6821
 ENV MAX_THREADS=1

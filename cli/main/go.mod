@@ -1,6 +1,6 @@
 module github.com/BayviewComputerClub/smoothie-runner/cli/main
 
-go 1.13
+go 1.14
 
 require (
 	github.com/BayviewComputerClub/smoothie-runner/protocol/runner v0.0.0-20200201204513-82f95cf7ffdf

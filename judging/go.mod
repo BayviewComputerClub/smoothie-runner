@@ -1,6 +1,6 @@
 module github.com/BayviewComputerClub/smoothie-runner/judging
 
-go 1.13
+go 1.14
 
 require (
 	github.com/BayviewComputerClub/smoothie-runner/adapters v0.0.0-20191004210318-697ce8368920

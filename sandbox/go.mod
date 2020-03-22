@@ -1,6 +1,6 @@
 module github.com/BayviewComputerClub/smoothie-runner/sandbox
 
-go 1.13
+go 1.14
 
 require (
 	github.com/BayviewComputerClub/smoothie-runner/shared v0.0.0-20200315011139-7b50a3d3e486

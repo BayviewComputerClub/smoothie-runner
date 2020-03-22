@@ -1,6 +1,6 @@
 module github.com/BayviewComputerClub/smoothie-runner/adapters
 
-go 1.13
+go 1.14
 
 replace github.com/BayviewComputerClub/smoothie-runner/shared => ../shared
 

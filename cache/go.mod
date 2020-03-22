@@ -1,6 +1,6 @@
 module github.com/BayviewComputerClub/smoothie-runner/judging
 
-go 1.13
+go 1.14
 
 require (
 	github.com/BayviewComputerClub/smoothie-runner/protocol/test-data v0.0.0-20191005014351-73e6f012bacd
