@@ -22,19 +22,19 @@ const (
 
 type RLimit struct {
 	Type int
-	Cur uint64
-	Max uint64
+	Cur  uint64
+	Max  uint64
 }
 
 type RunnerResult struct {
 	Status int
-	Error string
+	Error  string
 }
 
 type RunnerSessionResult struct {
-	Status int
-	Error string
-	TimeUsed time.Duration
+	Status     int
+	Error      string
+	TimeUsed   time.Duration
 	MemoryUsed int64
 }
 
@@ -46,16 +46,19 @@ type RunnerSession struct {
 	InternalResultChan chan RunnerResult
 
 	// Pid of child
-	Pid int
+	Pid  int
 	Pgid int
 
 	// Execveat (init)
 	ExecFile uintptr
 	ExecArgs []string
-	ExecEnv []string
+	ExecEnv  []string
 
 	// Whether or not the initial exec was called
 	ExecUsed bool
+
+	// Whether or not the process has exited
+	ProcExited bool
 
 	// File descriptors to set: [newfd]oldfd (init)
 	Files map[int]uintptr
@@ -66,7 +69,10 @@ type RunnerSession struct {
 	// Resource limits with rlimit
 	RLimits []RLimit
 
-	// Timeout, in seconds (init)
+	// Hard timeout, includes time spent preparing sandbox, done by goroutine -> kill (init)
+	HardTimeout time.Duration
+
+	// Soft timeout, done by process (init)
 	TimeLimit time.Duration
 
 	// Maximum memory, in bytes (init)
@@ -91,9 +97,21 @@ type RunnerSession struct {
 	MemoryUsed int64
 }
 
-// TODO kill function for timeouts to use
+// enforce a hard timeout
+func (session *RunnerSession) Timeout() {
+	time.Sleep(session.HardTimeout)
+	if !session.ProcExited {
+		session.InternalResultChan <- RunnerResult{
+			Status: RunnerStatusTLE,
+			Error: "hard timeout",
+		}
+	}
+}
 
 func (session *RunnerSession) Start() {
+	// start hard timeout
+	session.Timeout()
+
 	// configure rlimits
 	session.InitRLimits()
 
@@ -119,16 +137,22 @@ func (session *RunnerSession) Start() {
 	}
 }
 
+func (session *RunnerSession) Kill() {
+	unix.Kill(session.Pid, syscall.SIGTERM)
+	unix.Kill(session.Pid, unix.SIGKILL) // heh why
+	var wstatus unix.WaitStatus
+	unix.Wait4(session.Pid, &wstatus, unix.WALL|unix.WNOHANG, nil) // collect zombie
+}
+
 func (session *RunnerSession) WaitForStatus() {
 	// receives when child is finished
 	res := <-session.InternalResultChan
 
 	if util.IsPidRunning(session.Pid) {
-		unix.Kill(session.Pid, syscall.SIGTERM)
-		unix.Kill(session.Pid, syscall.SIGKILL) // extra assurance
-		var wstatus unix.WaitStatus
-		unix.Wait4(session.Pid, &wstatus, unix.WALL|unix.WNOHANG, nil) // collect zombie
+		session.Kill()
 	}
+
+	session.ProcExited = true
 
 	// send result to result channel
 	session.ResultChan <- RunnerSessionResult{

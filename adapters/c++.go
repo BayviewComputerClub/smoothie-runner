@@ -9,7 +9,6 @@ import (
 )
 
 func CppHelper(session *shared.JudgeSession, std string) (*exec.Cmd, error) {
-
 	err := ioutil.WriteFile(session.Workspace + "/main.cpp", []byte(session.Code), 0644)
 	if err != nil {
 		return nil, err
@@ -19,6 +18,15 @@ func CppHelper(session *shared.JudgeSession, std string) (*exec.Cmd, error) {
 	if err != nil {
 		return nil, errors.New(strings.ReplaceAll(string(output), session.Workspace+"/main.cpp", ""))
 	}
+
+	//rsr, err := sandboxCompileHelper(exec.Command("g++", "-std=" + std, session.Workspace+"/main.cpp", "-o", session.Workspace+"/main"), util.SANDBOX_COMPILER_PROFILE)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//if rsr.Error != "" {
+	//	// TODO do error handling
+	//}
 
 	c := exec.Command(session.Workspace+"/main")
 	c.Dir = session.Workspace

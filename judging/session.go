@@ -71,13 +71,13 @@ func (session *GradeSession) StartJudging() {
 		ExecFile:           session.ExecFile,
 		ExecArgs:           session.Command.Args,
 		ExecEnv:            session.Command.Env,
-		ExecUsed:           false,
 		Files:              make(map[int]uintptr),
 		Workspace:          session.Command.Dir,
+		HardTimeout:        time.Duration(session.Problem.TimeLimit) * time.Second * 2 + 10 * time.Second,
 		TimeLimit:          time.Duration(session.Problem.TimeLimit) * time.Second,
 		MemoryLimit:        uint64(session.Problem.MemLimit) * 1024 * 1024,
-		FSizeLimit:			session.JudgingSession.FSizeLimit,
-		NProcLimit:			session.JudgingSession.NProcLimit,
+		FSizeLimit:         session.JudgingSession.FSizeLimit,
+		NProcLimit:         session.JudgingSession.NProcLimit,
 		SeccompProfile:     session.SeccompProfile,
 	}
 
@@ -88,7 +88,6 @@ func (session *GradeSession) StartJudging() {
 
 	go session.RunnerSession.Start()
 	go session.WaitVerdict()
-	go session.Timeout()
 
 	// wait until child processes finish
 	session.RunnerResult = <-session.RunnerSession.ResultChan
@@ -135,13 +134,6 @@ func (session *GradeSession) StartJudging() {
 	}
 }
 
-func (session *GradeSession) Timeout() {
-	time.Sleep(time.Duration(session.Problem.TimeLimit)*time.Second*2 + 10*time.Second)
-	if !session.DoneSent {
-		session.StreamDone <- CaseReturn{Result: shared.OUTCOME_ISE, ResultInfo: "timeout"}
-	}
-}
-
 /*
  * Wait for result from other goroutines
  */
@@ -153,33 +145,35 @@ func (session *GradeSession) WaitVerdict() {
 	response := <-session.StreamDone
 	session.DoneSent = true
 
+	tcr := pb.TestCaseResult{
+		Time:        session.RunnerResult.TimeUsed.Seconds(),
+		MemUsage:    float64(session.RunnerResult.MemoryUsed) / 1000,
+		BatchNumber: session.BatchNum,
+		CaseNumber:  session.CaseNum,
+	}
+
 	// send result back to runner
 	if response.Result != shared.OUTCOME_AC && session.Stderr != "" { //  if the outcome was wrong answer but there was an error
-		session.StreamResult <- pb.TestCaseResult{
-			Result:      shared.OUTCOME_RTE,
-			ResultInfo:  session.Stderr,
-			Time:        session.RunnerResult.TimeUsed.Seconds(),
-			MemUsage:    float64(session.RunnerResult.MemoryUsed) / 1000,
-			BatchNumber: session.BatchNum,
-			CaseNumber:  session.CaseNum,
-		}
+
+		tcr.Result = shared.OUTCOME_RTE
+		tcr.ResultInfo = session.Stderr
+
 	} else if response.Result == shared.OUTCOME_RTE { // if the program did not exit successfully
-		session.StreamResult <- pb.TestCaseResult{
-			Result:      shared.OUTCOME_RTE,
-			ResultInfo:  fmt.Sprintf("Exit code: %v: %v", session.RunnerSession.ExitCode, session.Stderr),
-			Time:        session.RunnerResult.TimeUsed.Seconds(),
-			MemUsage:    float64(session.RunnerResult.MemoryUsed) / 1000,
-			BatchNumber: session.BatchNum,
-			CaseNumber:  session.CaseNum,
-		}
+
+		tcr.Result = shared.OUTCOME_RTE
+		tcr.ResultInfo = fmt.Sprintf("Exit code: %v: %v", session.RunnerSession.ExitCode, session.Stderr)
+
+	} else if response.Result == shared.OUTCOME_TLE && response.ResultInfo == "hard timeout" { // hard timeout
+
+		tcr.Result = shared.OUTCOME_ISE
+		tcr.ResultInfo = "hard timeout"
+
 	} else { // if the program exited successfully
-		session.StreamResult <- pb.TestCaseResult{
-			Result:      response.Result,
-			ResultInfo:  response.ResultInfo,
-			Time:        session.RunnerResult.TimeUsed.Seconds(),
-			MemUsage:    float64(session.RunnerResult.MemoryUsed) / 1000,
-			BatchNumber: session.BatchNum,
-			CaseNumber:  session.CaseNum,
-		}
+
+		tcr.Result = response.Result
+		tcr.ResultInfo = response.ResultInfo
+
 	}
+
+	session.StreamResult <- tcr
 }

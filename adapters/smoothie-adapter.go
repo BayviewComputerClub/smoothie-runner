@@ -41,17 +41,16 @@ func sandboxCompileHelper(compileCommand *exec.Cmd, sandboxProfile util.SandboxP
 	session := sandbox.RunnerSession{
 		ResultChan:         make(chan sandbox.RunnerSessionResult),
 		InternalResultChan: make(chan sandbox.RunnerResult),
-		ExecFile:           0,
 		ExecArgs:           compileCommand.Args,
 		ExecEnv:            compileCommand.Env,
-		ExecUsed:           false,
-		Files:              make(map[int]uintptr),
+		Files:              make(map[int]uintptr), // TODO add files
 		Workspace:          compileCommand.Dir,
 		RLimits:            nil,
+		HardTimeout:        60 * time.Second,
 		TimeLimit:          30 * time.Second, // set static compile time limit to 30 seconds
 		MemoryLimit:        1e9,              // set static compile memory limit to 1GB
-		FSizeLimit:         -1,				  // no file create limit
-		NProcLimit:         -1, 			  // no process limit
+		FSizeLimit:         -1,               // no file create limit
+		NProcLimit:         -1,               // no process limit
 		SeccompProfile:     sandboxProfile,
 	}
 
