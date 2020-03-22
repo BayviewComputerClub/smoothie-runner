@@ -78,6 +78,7 @@ func (session *GradeSession) StartJudging() {
 		MemoryLimit:        uint64(session.Problem.MemLimit) * 1024 * 1024,
 		FSizeLimit:         session.JudgingSession.FSizeLimit,
 		NProcLimit:         session.JudgingSession.NProcLimit,
+		SandboxWithSeccomp: true,
 		SeccompProfile:     session.SeccompProfile,
 	}
 

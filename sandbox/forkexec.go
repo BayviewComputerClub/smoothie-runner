@@ -154,7 +154,7 @@ func (session *RunnerSession) ForkExecChild(context ForkExecContext) {
 		}
 	}
 
-	if shared.SANDBOX {
+	if session.SandboxWithSeccomp && shared.SANDBOX {
 		// close all file descriptors in a brutal fashion :)
 		for i := 0; i < sysconf.SC_OPEN_MAX; i++ {
 			// check if file descriptor is not used
@@ -187,7 +187,7 @@ func (session *RunnerSession) ForkExecChild(context ForkExecContext) {
 		return
 	}
 
-	if shared.SANDBOX {
+	if session.SandboxWithSeccomp && shared.SANDBOX {
 		// ptrace
 		_, _, err1 = unix.RawSyscall(unix.SYS_PTRACE, uintptr(unix.PTRACE_TRACEME), 0, 0)
 		if err1 != 0 {

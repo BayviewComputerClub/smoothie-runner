@@ -193,18 +193,24 @@ func (session *RunnerSession) CheckRestrictedCall(pid int, pregs *unix.PtraceReg
 		}
 
 	case unix.SYS_EXECVE:
-		wd, err = readStringAtAddr(pid, uintptr(pregs.Rdi))
-		if err == nil {
-			session.TraceCheckRead(pid, wd, pregs)
+		if !session.ExecUsed { // on first execveat to run program, ignore call
+			session.ExecUsed = true
+		} else {
+			blockCall(pregs, pid)
 		}
+		//wd, err = readStringAtAddr(pid, uintptr(pregs.Rdi))
+		//if err == nil {
+		//	session.TraceCheckRead(pid, wd, pregs)
+		//}
 
 	case unix.SYS_EXECVEAT:
 		if !session.ExecUsed { // on first execveat to run program, ignore call
 			session.ExecUsed = true
-			return
+		} else {
+			blockCall(pregs, pid)
 		}
-		wd, err = readStringAtAddr(pid, uintptr(pregs.Rsi))
-		session.TraceCheckRead(pid, wd, pregs)
+		//wd, err = readStringAtAddr(pid, uintptr(pregs.Rsi))
+		//session.TraceCheckRead(pid, wd, pregs)
 
 	default:
 		// ban by default (allowed calls should have been allowed by seccomp)
@@ -212,7 +218,7 @@ func (session *RunnerSession) CheckRestrictedCall(pid int, pregs *unix.PtraceReg
 	}
 
 	if err != nil {
-		util.Warn("readpeekstring: " + err.Error())
+		util.Warn("readstring: " + err.Error())
 		return
 	}
 }

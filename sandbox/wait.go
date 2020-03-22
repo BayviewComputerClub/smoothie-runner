@@ -16,7 +16,6 @@ func (session *RunnerSession) WaitProcState() {
 	for {
 		// wait for process change state
 		_, err := unix.Wait4(session.Pid, &wstatus, 0, &rusage)
-		println("WAIT4: ", wstatus) // TODO
 		if err != nil {
 			shared.Debug("wait4: " + err.Error())
 			session.InternalResultChan <- RunnerResult{

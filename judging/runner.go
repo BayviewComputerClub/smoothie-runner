@@ -9,6 +9,7 @@ import (
 	"github.com/BayviewComputerClub/smoothie-runner/util"
 	"github.com/rs/xid"
 	"os"
+	"path"
 	"sync/atomic"
 )
 
@@ -77,6 +78,16 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 		OriginalRequest: req,
 	}
 
+	// resolve full path for workspace
+	if len(shared.TESTING_DIR) == 0 || shared.TESTING_DIR[0] == '.' {
+		p, err := os.Getwd()
+		if err != nil {
+			sendISE(err, res)
+			return
+		}
+		session.Workspace = path.Clean(p + "/" + session.Workspace)
+	}
+
 	// get test data
 	testData, err := cache.GetTestData(session.OriginalRequest.Problem.ProblemId)
 	if err != nil {
@@ -96,6 +107,7 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 		panic(err)
 	}
 
+	util.Warn("Compiling request in " + session.Language + " for " + session.Workspace + ".")
 	// attempt to compile user submitted code
 	session.RunCommand, err = adapters.CompileAndGetRunCommand(&session)
 	if err != nil {
@@ -110,6 +122,7 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 		}
 		return
 	}
+	util.Warn("Compile complete for " + session.Workspace + ".")
 
 	var f *os.File
 	// get exec command pointers

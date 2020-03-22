@@ -5,6 +5,8 @@ import (
 	"github.com/BayviewComputerClub/smoothie-runner/sandbox"
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
 	"github.com/BayviewComputerClub/smoothie-runner/util"
+	"io/ioutil"
+	"os"
 	"os/exec"
 	"time"
 )
@@ -37,23 +39,33 @@ func CompileAndGetRunCommand(session *shared.JudgeSession) (*exec.Cmd, error) {
 }
 
 // run compile command with sandbox
-func sandboxCompileHelper(compileCommand *exec.Cmd, sandboxProfile util.SandboxProfile) (*sandbox.RunnerSessionResult, error) {
-	session := sandbox.RunnerSession{
-		ResultChan:         make(chan sandbox.RunnerSessionResult),
-		InternalResultChan: make(chan sandbox.RunnerResult),
-		ExecArgs:           compileCommand.Args,
-		ExecEnv:            compileCommand.Env,
-		Files:              make(map[int]uintptr), // TODO add files
-		Workspace:          compileCommand.Dir,
-		RLimits:            nil,
-		HardTimeout:        60 * time.Second,
-		TimeLimit:          30 * time.Second, // set static compile time limit to 30 seconds
-		MemoryLimit:        1e9,              // set static compile memory limit to 1GB
-		FSizeLimit:         -1,               // no file create limit
-		NProcLimit:         -1,               // no process limit
-		SeccompProfile:     sandboxProfile,
-	}
+func sandboxCompileHelper(compileCommand *exec.Cmd, session *sandbox.RunnerSession) (*sandbox.RunnerSessionResult, error) {
+	session.ResultChan = make(chan sandbox.RunnerSessionResult)
+	session.InternalResultChan = make(chan sandbox.RunnerResult)
+	session.ExecArgs = compileCommand.Args
+	session.ExecEnv = compileCommand.Env
+	session.Files = make(map[int]uintptr)
+	session.Workspace = compileCommand.Dir
+	session.RLimits = nil
+	session.HardTimeout = 30 * time.Second
+	session.TimeLimit = 20 * time.Second // set compile time limit to 30 seconds
+	session.MemoryLimit = 1e9            // set compile memory limit to 1GB
+	session.FSizeLimit = 1e9             // set maximum write to 1GB
+	session.NProcLimit = -1              // no process limit
 
+	// create output file
+	err := ioutil.WriteFile(compileCommand.Dir+"/compileout", []byte(""), 0644)
+	if err != nil {
+		return nil, err
+	}
+	file, err := os.OpenFile(compileCommand.Dir+"/compileout", os.O_RDWR, os.ModeAppend) // open with read/write fd
+	if err != nil {
+		return nil, err
+	}
+	session.Files[1] = file.Fd()
+	session.Files[2] = file.Fd()
+
+	// add exec file ptr
 	f, err := util.GetPtrsFromCmd(compileCommand)
 	if err != nil {
 		return nil, err

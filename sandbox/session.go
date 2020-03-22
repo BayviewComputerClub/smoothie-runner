@@ -33,6 +33,7 @@ type RunnerResult struct {
 
 type RunnerSessionResult struct {
 	Status     int
+	ExitCode   int
 	Error      string
 	TimeUsed   time.Duration
 	MemoryUsed int64
@@ -84,6 +85,9 @@ type RunnerSession struct {
 	// Maximum number of processes that can be created (init)
 	NProcLimit int64
 
+	// Whether or not the process should be sandboxed with seccomp + ptrace (init)
+	SandboxWithSeccomp bool
+
 	// Seccomp profile (init)
 	SeccompProfile util.SandboxProfile
 
@@ -103,14 +107,14 @@ func (session *RunnerSession) Timeout() {
 	if !session.ProcExited {
 		session.InternalResultChan <- RunnerResult{
 			Status: RunnerStatusTLE,
-			Error: "hard timeout",
+			Error:  "hard timeout",
 		}
 	}
 }
 
 func (session *RunnerSession) Start() {
 	// start hard timeout
-	session.Timeout()
+	go session.Timeout()
 
 	// configure rlimits
 	session.InitRLimits()
@@ -129,7 +133,7 @@ func (session *RunnerSession) Start() {
 	}
 
 	// check for process state change
-	if shared.SANDBOX {
+	if session.SandboxWithSeccomp && shared.SANDBOX {
 		go session.Trace()
 	} else {
 		session.StartTime = time.Now()
@@ -157,6 +161,7 @@ func (session *RunnerSession) WaitForStatus() {
 	// send result to result channel
 	session.ResultChan <- RunnerSessionResult{
 		Status:     res.Status,
+		ExitCode:   session.ExitCode,
 		Error:      res.Error,
 		TimeUsed:   time.Since(session.StartTime),
 		MemoryUsed: session.MemoryUsed,

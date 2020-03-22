@@ -2,8 +2,12 @@ package adapters
 
 import (
 	"errors"
+	"github.com/BayviewComputerClub/smoothie-runner/sandbox"
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
+	"github.com/BayviewComputerClub/smoothie-runner/util"
+	"io"
 	"io/ioutil"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -14,20 +18,38 @@ func CppHelper(session *shared.JudgeSession, std string) (*exec.Cmd, error) {
 		return nil, err
 	}
 
-	output, err := exec.Command("g++", "-std=" + std, session.Workspace+"/main.cpp", "-o", session.Workspace+"/main").CombinedOutput()
+	// compile
+	compileCmd := exec.Command("/usr/bin/g++", "-std=" + std, "main.cpp", "-o", "main")
+	compileCmd.Dir = session.Workspace
+	compileCmd.Env = append(compileCmd.Env, "PATH=$PATH:/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin")
+
+	se := util.SANDBOX_COMPILER_PROFILE
+	se.AllowWrite = make(map[string]bool)
+	for k, v := range util.SANDBOX_COMPILER_PROFILE.AllowWrite {
+		se.AllowWrite[k] = v
+	}
+	util.Warn(session.Workspace) // TODO
+	se.AllowWrite[session.Workspace] = true
+	se.AllowWrite["main.cpp"] = true
+
+	rsr, err := sandboxCompileHelper(compileCmd, &sandbox.RunnerSession{SeccompProfile: se, SandboxWithSeccomp: false})
 	if err != nil {
-		return nil, errors.New(strings.ReplaceAll(string(output), session.Workspace+"/main.cpp", ""))
+		return nil, err
 	}
 
-	//rsr, err := sandboxCompileHelper(exec.Command("g++", "-std=" + std, session.Workspace+"/main.cpp", "-o", session.Workspace+"/main"), util.SANDBOX_COMPILER_PROFILE)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//
-	//if rsr.Error != "" {
-	//	// TODO do error handling
-	//}
+	// read stdout and stderr from compile (truncate at 4096 bytes to not make it too long)
+	dat := make([]byte, 4096)
+	f, err := os.Open(session.Workspace + "/compileout")
+	if err != nil {
+		return nil, err
+	}
+	io.ReadFull(f, dat)
 
+	if rsr.Status != sandbox.RunnerStatusOK || rsr.ExitCode != 0 {
+		return nil, errors.New(strings.ReplaceAll(string(dat), session.Workspace+"/main.cpp", "") + " : " + rsr.Error)
+	}
+
+	// return exec command
 	c := exec.Command(session.Workspace+"/main")
 	c.Dir = session.Workspace
 	return c, nil
