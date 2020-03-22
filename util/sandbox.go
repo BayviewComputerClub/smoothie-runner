@@ -1,5 +1,9 @@
 package util
 
+import (
+	"github.com/elastic/go-seccomp-bpf"
+)
+
 type SandboxProfile struct {
 	AllowRead  map[string]bool // will include AllowWrite entries
 	AllowWrite map[string]bool
@@ -7,8 +11,7 @@ type SandboxProfile struct {
 	DisallowRead  map[string]bool // TODO will automatically include DisallowWrite entries
 	DisallowWrite map[string]bool // TODO
 
-	SyscallAllow []string
-	SyscallTrace []string // restricted calls
+	SeccompPolicy seccomp.Policy
 }
 
 // "inspired" by https://github.com/DMOJ/judge-server/blob/master/dmoj/cptbox/isolate.py
@@ -25,7 +28,7 @@ var (
 			"/usr/lib/locale/locale-archive": true,
 			"/proc/self/exe":                 true,
 			"/etc/timezone":                  true,
-			"/usr/share/zoneinfo":           true,
+			"/usr/share/zoneinfo":            true,
 			"/dev/random":                    true,
 			"/dev/urandom":                   true,
 			"/proc/meminfo":                  true,
@@ -45,112 +48,123 @@ var (
 		DisallowWrite: map[string]bool{
 
 		},
-		SyscallAllow: []string{
-			// file access through fd
-			"read",
-			"readv",
-			"pread64",
-			"write",
-			"writev",
-			"statfs",
-			"getpgrp",
-			"restart_syscall",
-			"select",
-			"modify_ldt",
-			"ppoll",
+		SeccompPolicy: seccomp.Policy{
+			DefaultAction: seccomp.ActionErrno, // trap syscalls by default
+			Syscalls: []seccomp.SyscallGroup{
+				{
+					Action: seccomp.ActionAllow,
+					Names: []string{
+						// file access through fd
+						"read",
+						"readv",
+						"pread64",
+						"write",
+						"writev",
+						"statfs",
+						"getpgrp",
+						"restart_syscall",
+						"select",
+						"modify_ldt",
+						"ppoll",
 
-			"sched_getaffinity",
-			"sched_getparam",
-			"sched_getscheduler",
-			"sched_get_priority_min",
-			"sched_get_priority_max",
-			"timerfd_create",
-			"timer_create",
-			"timer_settime",
-			"timer_delete",
+						"sched_getaffinity",
+						"sched_getparam",
+						"sched_getscheduler",
+						"sched_get_priority_min",
+						"sched_get_priority_max",
+						"timerfd_create",
+						"timer_create",
+						"timer_settime",
+						"timer_delete",
 
-			"rt_sigreturn",
-			"nanosleep",
-			"sysinfo",
-			"getrandom",
+						"rt_sigreturn",
+						"nanosleep",
+						"sysinfo",
+						"getrandom",
 
-			"close",
-			"dup",
-			"dup2",
-			"dup3",
-			"fstat",
-			"mmap",
-			"mremap",
-			"mprotect",
-			"madvise",
-			"munmap",
-			"brk",
-			"fcntl",
-			"arch_prctl",
-			"set_tid_address",
-			"set_robust_list",
-			"futex",
-			"rt_sigaction",
-			"rt_sigprocmask",
-			"getrlimit",
-			"ioctl",
-			"getcwd",
-			"geteuid",
-			"getuid",
-			"getegid",
-			"getgid",
-			"getdents",
-			"lseek",
-			"getrusage",
-			"sigaltstack",
-			"pipe",
-			"pipe2",
-			"clock_gettime",
-			"clock_getres",
-			"gettimeofday",
-			"getpid",
-			"getppid",
-			"sched_yield",
+						"close",
+						"dup",
+						"dup2",
+						"dup3",
+						"fstat",
+						"mmap",
+						"mremap",
+						"mprotect",
+						"madvise",
+						"munmap",
+						"brk",
+						"fcntl",
+						"arch_prctl",
+						"set_tid_address",
+						"set_robust_list",
+						"futex",
+						"rt_sigaction",
+						"rt_sigprocmask",
+						"getrlimit",
+						"ioctl",
+						"getcwd",
+						"geteuid",
+						"getuid",
+						"getegid",
+						"getgid",
+						"getdents",
+						"lseek",
+						"getrusage",
+						"sigaltstack",
+						"pipe",
+						"pipe2",
+						"clock_gettime",
+						"clock_getres",
+						"gettimeofday",
+						"getpid",
+						"getppid",
+						"sched_yield",
 
-			"clone",
-			"exit",
-			"exit_group",
-			"gettid",
+						"clone",
+						"exit",
+						"exit_group",
+						"gettid",
 
-			// extra
-			"fadvise64",
+						// extra
+						"fadvise64",
 
-			"msync",
-			"mincore",
+						"msync",
+						"mincore",
 
-			"rt_sigpending",
+						"rt_sigpending",
 
-			"times",
-			"time",
-		},
-		SyscallTrace: []string{
-			// execute initial file (then blocked)
-			"execve",
-			"execveat",
+						"times",
+						"time",
+					},
+				},
+				{
+					Action: seccomp.ActionTrace,
+					Names: []string{
+						// execute initial file (then blocked)
+						"execve",
+						"execveat",
 
-			// file open
-			"open",
-			"openat",
+						// file open
+						"open",
+						"openat",
 
-			// file delete
-			"unlink",
-			"unlinkat",
+						// file delete
+						"unlink",
+						"unlinkat",
 
-			// soft link
-			"readlink",
-			"readlinkat",
+						// soft link
+						"readlink",
+						"readlinkat",
 
-			// permission check
-			"lstat",
-			"stat",
+						// permission check
+						"lstat",
+						"stat",
 
-			"access",
-			"faccessat",
+						"access",
+						"faccessat",
+					},
+				},
+			},
 		},
 	}
 
@@ -167,9 +181,9 @@ var (
 			"/sbin":                   true,
 			"/sys/devices/system/cpu": true,
 			"/proc":                   true,
-			"/etc/timezone":            true,
+			"/etc/timezone":           true,
 			"/etc/fpc-2.6.2.cfg.d":    true,
-			"/etc/fpc.cfg":             true,
+			"/etc/fpc.cfg":            true,
 		},
 		AllowWrite: map[string]bool{
 			"/tmp": true,
@@ -186,39 +200,33 @@ var (
 			"/etc/passwd":        true,
 			"/etc/malloc.conf":   true,
 		},
-		SyscallAllow: append(SANDBOX_DEFAULT_PROFILE.SyscallAllow, []string{
-			"gettid", "set_tid_address", "set_robust_list", "futex",
-			"getpid", "vfork", "fork", "clone", "execve", "execveat", "wait4",
-			"clock_gettime", "clock_getres",
-			"setrlimit", "pipe",
-			"getdents64", "getdents",
-			"umask", "rename", "chmod", "mkdir",
-			"chdir", "fchdir",
-			"ftruncate",
-			"sched_getaffinity", "sched_yield",
-			"uname", "sysinfo",
-			"prlimit64", "getrandom",
-			"fchmodat",
-		}...),
-		SyscallTrace: []string{
-			// file open
-			"open",
-			"openat",
+		SeccompPolicy: seccomp.Policy{
+			DefaultAction: seccomp.ActionAllow, // allow syscalls by default
+			Syscalls: []seccomp.SyscallGroup{
+				{
+					Action: seccomp.ActionTrace,
+					Names: []string{
+						// file open
+						"open",
+						"openat",
 
-			// file delete
-			"unlink",
-			"unlinkat",
+						// file delete
+						"unlink",
+						"unlinkat",
 
-			// soft link
-			"readlink",
-			"readlinkat",
+						// soft link
+						"readlink",
+						"readlinkat",
 
-			// permission check
-			"lstat",
-			"stat",
+						// permission check
+						"lstat",
+						"stat",
 
-			"access",
-			"faccessat",
+						"access",
+						"faccessat",
+					},
+				},
+			},
 		},
 	}
 )

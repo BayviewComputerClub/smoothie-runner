@@ -28,7 +28,6 @@ func CppHelper(session *shared.JudgeSession, std string) (*exec.Cmd, error) {
 	for k, v := range util.SANDBOX_COMPILER_PROFILE.AllowWrite {
 		se.AllowWrite[k] = v
 	}
-	util.Warn(session.Workspace) // TODO
 	se.AllowWrite[session.Workspace] = true
 	se.AllowWrite["main.cpp"] = true
 
