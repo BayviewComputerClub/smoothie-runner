@@ -61,11 +61,14 @@ func (session *GradeSession) InitIOFiles() {
  */
 
 func (session *GradeSession) CloseStreams() {
+	// remove output and error files (not input, since that is cached)
 	if session.OutputStream != nil {
 		session.OutputStream.Close()
+		os.Remove(session.OutputStream.Name())
 	}
 	if session.ErrorStream != nil {
 		session.ErrorStream.Close()
+		os.Remove(session.ErrorStream.Name())
 	}
 	if session.InputStream != nil {
 		session.InputStream.Close()

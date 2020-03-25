@@ -103,8 +103,8 @@ func (session *RunnerSession) ForkExecParent(context ForkExecContext) error {
 		if err == nil {
 			err = syscall.EPIPE
 		}
-		handleChildFailed(context.Pid)
 		util.Warn("forkexec execread: " + err.Error())
+		handleChildFailed(context.Pid)
 		return err
 	}
 	unix.RawSyscall(syscall.SYS_WRITE, uintptr(context.Pipe[0]), uintptr(unsafe.Pointer(&err1)), unsafe.Sizeof(err1))
@@ -154,16 +154,6 @@ func (session *RunnerSession) ForkExecChild(context ForkExecContext) {
 		}
 	}
 
-	if session.SandboxWithSeccomp && shared.SANDBOX {
-		// close all file descriptors in a brutal fashion :)
-		for i := 0; i < sysconf.SC_OPEN_MAX; i++ {
-			// check if file descriptor is not used
-			if _, ok := session.Files[i]; !ok {
-				_ = unix.Close(i)
-			}
-		}
-	}
-
 	// set resource limits
 	if shared.RLIMITS {
 		err = session.SetRlimits()
@@ -208,6 +198,16 @@ func (session *RunnerSession) ForkExecChild(context ForkExecContext) {
 		if err != nil {
 			forkLeaveError(pipe, err)
 			return
+		}
+	}
+
+	if session.SandboxWithSeccomp && shared.SANDBOX {
+		// close all file descriptors in a brutal fashion :)
+		for i := 0; i < sysconf.SC_OPEN_MAX; i++ {
+			// check if file descriptor is not used
+			if _, ok := session.Files[i]; !ok {
+				_ = unix.Close(i)
+			}
 		}
 	}
 

@@ -37,7 +37,7 @@ func init() {
 	}
 	shared.TESTING_DIR = getEnv("TESTING_DIR", ".")
 	shared.CACHE_DIR = getEnv("CACHE_DIR", "./cache")
-	shared.MAX_THREADS, err = strconv.Atoi(getEnv("MAX_THREADS", "8"))
+	shared.MAX_THREADS, err = strconv.Atoi(getEnv("MAX_THREADS", "1"))
 	if err != nil {
 		panic(err)
 	}

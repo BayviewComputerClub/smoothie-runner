@@ -59,14 +59,12 @@ func (session *RunnerSession) InitRLimits() {
 
 func (session *RunnerSession) SetRlimits() error {
 	for _, rlimit := range session.RLimits {
-		if rlimit.Cur > 0 {
-			err := unix.Setrlimit(rlimit.Type, &unix.Rlimit{
-				Cur: rlimit.Cur,
-				Max: rlimit.Max,
-			})
-			if err != nil {
-				return err
-			}
+		err := unix.Setrlimit(rlimit.Type, &unix.Rlimit{
+			Cur: rlimit.Cur,
+			Max: rlimit.Max,
+		})
+		if err != nil {
+			return err
 		}
 	}
 	return nil

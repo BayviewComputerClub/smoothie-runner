@@ -87,6 +87,7 @@ func (session *GradeSession) StartJudging() {
 	session.RunnerSession.Files[1] = session.OutputStream.Fd()
 	session.RunnerSession.Files[2] = session.ErrorStream.Fd()
 
+	// start runner session
 	go session.RunnerSession.Start()
 	go session.WaitVerdict()
 

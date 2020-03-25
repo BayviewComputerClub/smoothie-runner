@@ -76,6 +76,7 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 		Code:            req.Solution.Code,
 		Language:        req.Solution.Language,
 		OriginalRequest: req,
+		FSizeLimit: 1e9, // TODO output limit
 	}
 
 	// resolve full path for workspace
@@ -107,7 +108,7 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 		panic(err)
 	}
 
-	util.Warn("Compiling request in " + session.Language + " for " + session.Workspace + ".")
+	util.Info("Compiling request in " + session.Language + " for " + session.Workspace + ".")
 	// attempt to compile user submitted code
 	session.RunCommand, err = adapters.CompileAndGetRunCommand(&session)
 	if err != nil {
@@ -122,7 +123,7 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 		}
 		return
 	}
-	util.Warn("Compile complete for " + session.Workspace + ".")
+	util.Info("Compile complete for " + session.Workspace + ".")
 
 	var f *os.File
 	// get exec command pointers

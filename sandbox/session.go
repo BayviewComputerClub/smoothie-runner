@@ -4,6 +4,7 @@ import (
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
 	"github.com/BayviewComputerClub/smoothie-runner/util"
 	"golang.org/x/sys/unix"
+	"os"
 	"syscall"
 	"time"
 )
@@ -103,7 +104,13 @@ type RunnerSession struct {
 
 // enforce a hard timeout
 func (session *RunnerSession) Timeout() {
-	time.Sleep(session.HardTimeout)
+	for i := 0.0; i < session.HardTimeout.Seconds(); i++ {
+		time.Sleep(time.Second)
+		if session.ProcExited {
+			return
+		}
+	}
+
 	if !session.ProcExited {
 		session.InternalResultChan <- RunnerResult{
 			Status: RunnerStatusTLE,
@@ -142,10 +149,15 @@ func (session *RunnerSession) Start() {
 }
 
 func (session *RunnerSession) Kill() {
-	unix.Kill(session.Pid, syscall.SIGTERM)
-	unix.Kill(session.Pid, unix.SIGKILL) // heh why
-	var wstatus unix.WaitStatus
-	unix.Wait4(session.Pid, &wstatus, unix.WALL|unix.WNOHANG, nil) // collect zombie
+	curPid := os.Getpid()
+
+	// don't kill yourself
+	if session.Pid != curPid {
+		unix.Kill(session.Pid, syscall.SIGTERM)
+		unix.Kill(session.Pid, unix.SIGKILL) // heh why
+		var wstatus unix.WaitStatus
+		unix.Wait4(session.Pid, &wstatus, unix.WALL|unix.WNOHANG, nil) // collect zombie
+	}
 }
 
 func (session *RunnerSession) WaitForStatus() {
