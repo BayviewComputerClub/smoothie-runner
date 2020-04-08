@@ -8,6 +8,7 @@ ENV DEBUG=false
 ENV SANDBOX=true
 ENV CLEANUP_SESSIONS=true
 ENV RLIMITS=true
+ENV JAVA_SANDBOX_AGENT=java_sandbox.jar
 
 EXPOSE $PORT
 
@@ -22,6 +23,7 @@ RUN apt update -y && \
     go build ./... && \
     mv ./main /bin/smoothie-runner && \
     cd ../ && \
+    mv util/java-sandbox.jar ./ && \
     mkdir -p testing-sessions
 
 ENTRYPOINT smoothie-runner

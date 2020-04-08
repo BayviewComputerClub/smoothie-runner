@@ -45,6 +45,7 @@ type GradeSession struct {
 	ExecFile uintptr
 
 	// seccomp & ptrace
+	SandboxWithSeccomp bool
 	SeccompProfile util.SandboxProfile
 
 	// sandbox session
@@ -78,7 +79,7 @@ func (session *GradeSession) StartJudging() {
 		MemoryLimit:        uint64(session.Problem.MemLimit) * 1024 * 1024,
 		FSizeLimit:         session.JudgingSession.FSizeLimit,
 		NProcLimit:         session.JudgingSession.NProcLimit,
-		SandboxWithSeccomp: true,
+		SandboxWithSeccomp: session.SandboxWithSeccomp,
 		SeccompProfile:     session.SeccompProfile,
 	}
 

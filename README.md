@@ -1,8 +1,4 @@
 # smoothie-runner
-`
-The smooothest way to do competitive programming judging! sweeet
-`
-
 smoothie-runner allows for running, and verifying programs for competitive programming in a sandboxed environment.
 
 ## Environment Variables
@@ -15,6 +11,7 @@ smoothie-runner is configured through environment variables, because (¬‿¬)
 * SANDBOX=true - Whether or not to enable sandboxing with ptrace & seccomp
 * CLEANUP_SESSIONS=true - Whether or not to cleanup sessions after they are finished.
 * RLIMITS=true - Whether or not resource limits should be applied.
+* JAVA_SANDBOX_AGENT=java_sandbox.jar - Location of the [java-sandbox-agent](https://github.com/DMOJ/java-sandbox-agent/tree/d73cc65b7454250d7a7aac81edbb0c1d8fa64c62) jar file.
 
 ## Running
 It is highly recommended to run smoothie-runner in Docker. You can also run it outside of a container, provided that it is on a Linux based operating system (kernel 3.19 or later).
@@ -42,6 +39,10 @@ If you want to compile the program, make sure you have Go 1.13 installed, and th
 ```shell script
 $ ./build.sh
 ```
+ 
+ ## Requirements
+ * Linux kernel 3.19+
+ * https://github.com/DMOJ/java-sandbox-agent/
  
  ## Sandbox
  The sandbox loads a seccomp filter, which filters syscalls, and lets restricted calls be checked by the parent process with ptrace. 

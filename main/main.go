@@ -45,6 +45,7 @@ func init() {
 	shared.SANDBOX = getEnv("SANDBOX", "true") == "true"
 	shared.CLEANUP_SESSIONS = getEnv("CLEANUP_SESSIONS", "true") == "true"
 	shared.RLIMITS = getEnv("RLIMITS", "true") == "true"
+	shared.JAVA_SANDBOX_AGENT = getEnv("JAVA_SANDBOX_AGENT", "java_sandbox.jar")
 }
 
 // entry point

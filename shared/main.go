@@ -6,14 +6,15 @@ import (
 )
 
 var (
-	PORT             int
-	MAX_THREADS      int
-	TESTING_DIR      string
-	CACHE_DIR        string
-	DEBUG            bool
-	SANDBOX          bool
-	CLEANUP_SESSIONS bool
-	RLIMITS			 bool
+	PORT               int
+	MAX_THREADS        int
+	TESTING_DIR        string
+	CACHE_DIR          string
+	DEBUG              bool
+	SANDBOX            bool
+	CLEANUP_SESSIONS   bool
+	RLIMITS            bool
+	JAVA_SANDBOX_AGENT string
 
 	TasksToBeDone = new(int64)
 	TasksInQueue  = new(int64)

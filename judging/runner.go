@@ -77,6 +77,9 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 		Language:        req.Solution.Language,
 		OriginalRequest: req,
 		FSizeLimit: 1e9, // TODO output limit
+
+		SandboxWithSeccomp: true,
+		SeccompProfile: util.SANDBOX_DEFAULT_PROFILE,
 	}
 
 	// resolve full path for workspace
@@ -210,7 +213,8 @@ func JudgeCase(batchNum uint64, caseNum uint64, session *shared.JudgeSession, re
 		Command:  session.RunCommand,
 		ExecFile: session.CommandFd,
 
-		SeccompProfile: util.SANDBOX_DEFAULT_PROFILE, // TODO
+		SandboxWithSeccomp: session.SandboxWithSeccomp,
+		SeccompProfile: session.SeccompProfile,
 	}
 	go gradingSession.StartJudging()
 
