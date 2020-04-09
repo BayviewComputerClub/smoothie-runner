@@ -23,7 +23,7 @@ RUN apt update -y && \
     go build ./... && \
     mv ./main /bin/smoothie-runner && \
     cd ../ && \
-    mv util/java-sandbox.jar ./ && \
+    mv util/java_sandbox.jar ./ && \
     mkdir -p testing-sessions
 
 ENTRYPOINT smoothie-runner
