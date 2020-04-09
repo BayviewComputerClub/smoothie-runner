@@ -5,6 +5,7 @@ go 1.14
 require (
 	github.com/BayviewComputerClub/smoothie-runner/protocol/test-data v0.0.0-20191005014351-73e6f012bacd
 	github.com/BayviewComputerClub/smoothie-runner/shared v0.0.0-20191005014351-73e6f012bacd
+	github.com/golang/protobuf v1.3.2
 	gopkg.in/yaml.v2 v2.2.8
 )
 
