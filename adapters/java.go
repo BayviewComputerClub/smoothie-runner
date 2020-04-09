@@ -104,7 +104,7 @@ func JavaHelper(session *shared.JudgeSession) (*exec.Cmd, error) {
 
 	// command for execution
 	c := exec.Command("java",
-		"-javaagent:"+path+"/"+shared.JAVA_SANDBOX_AGENT+"=policy:"+session.Workspace+"/policy",
+		"-javaagent:"+path+"/"+shared.JAVA_SANDBOX_AGENT+"=policy:policy",
 		"-Xmx"+strconv.Itoa(int(session.OriginalRequest.Problem.MemLimit))+"M",
 		"-Xss128m", "-XX:+UseSerialGC", "-XX:ErrorFile=crash.log",
 		"Main")
