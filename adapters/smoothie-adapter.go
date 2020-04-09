@@ -11,13 +11,10 @@ import (
 	"time"
 )
 
-type SmoothieAdapter interface {
-	GetName() string
-	Compile(session *shared.JudgeSession) (*exec.Cmd, error) // return command in the workspace
-}
+
 
 var (
-	adapters = make(map[string]SmoothieAdapter)
+	adapters = make(map[string]shared.SmoothieAdapter)
 )
 
 func init() {
@@ -35,7 +32,9 @@ func CompileAndGetRunCommand(session *shared.JudgeSession) (*exec.Cmd, error) {
 		return nil, errors.New("language not supported (" + session.Language + ")")
 	}
 
-	return adapters[session.Language].Compile(session)
+	// set language adapter
+	session.LanguageAdapter = adapters[session.Language]
+	return session.LanguageAdapter.Compile(session)
 }
 
 // run compile command with sandbox

@@ -2,6 +2,7 @@ package adapters
 
 import (
 	"errors"
+	pb "github.com/BayviewComputerClub/smoothie-runner/protocol/runner"
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
 	"io/ioutil"
 	"os"
@@ -57,8 +58,25 @@ func (adapter Java11Adapter) GetName() string {
 }
 
 func (adapter Java11Adapter) Compile(session *shared.JudgeSession) (*exec.Cmd, error) {
+	return JavaHelper(session)
+}
+
+func (adapter Java11Adapter) JudgeFinished(tcr *pb.TestCaseResult) {
+	if tcr.Result == shared.OUTCOME_RTE {
+		// mle
+		if strings.Contains(tcr.ResultInfo, "There is insufficient memory for the Java Runtime Environment") ||
+			strings.Contains(tcr.ResultInfo, "java.lang.OutOfMemoryError: Java heap space"){
+			tcr.Result = shared.OUTCOME_MLE
+			//tcr.ResultInfo = ""
+		}
+	}
+}
+
+func JavaHelper(session *shared.JudgeSession) (*exec.Cmd, error) {
 	//session.FSizeLimit = 64 // dump file
 	session.NProcLimit = -1 // infinite threads (jvm)
+	// set memory limit to zero since it's enforced by the jvm
+	session.MemLimit = 0
 
 	// write source file
 	err := ioutil.WriteFile(session.Workspace+"/Main.java", []byte(session.Code), 0644)
@@ -78,6 +96,7 @@ func (adapter Java11Adapter) Compile(session *shared.JudgeSession) (*exec.Cmd, e
 		return nil, errors.New(strings.ReplaceAll(string(output), session.Workspace+"/Main.java", ""))
 	}
 
+	// get current working directory
 	path, err := os.Getwd()
 	if err != nil {
 		return nil, err
@@ -87,18 +106,14 @@ func (adapter Java11Adapter) Compile(session *shared.JudgeSession) (*exec.Cmd, e
 	c := exec.Command("java",
 		"-javaagent:"+path+"/"+shared.JAVA_SANDBOX_AGENT+"=policy:"+session.Workspace+"/policy",
 		"-Xmx"+strconv.Itoa(int(session.OriginalRequest.Problem.MemLimit))+"M",
-		"-Xss128m", "-XX:+UseSerialGC", "-XX:ErrorFile=crash.log", "-XX:MaxMetaspaceSize=128m",
+		"-Xss128m", "-XX:+UseSerialGC", "-XX:ErrorFile=crash.log",
 		"Main")
 
 	c.Env = append(c.Env, "MALLOC_ARENAS_MAX=1")
 	c.Dir = session.Workspace
 
-	// set memory limit to zero since it's enforced by the jvm
-	session.OriginalRequest.Problem.MemLimit = 0
 	// no seccomp
 	session.SandboxWithSeccomp = false
 
 	return c, nil
 }
-
-// TODO scan stderr for outofmemoryexception and turn that into mle

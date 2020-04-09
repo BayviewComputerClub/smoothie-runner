@@ -2,6 +2,7 @@ package adapters
 
 import (
 	"errors"
+	pb "github.com/BayviewComputerClub/smoothie-runner/protocol/runner"
 	"github.com/BayviewComputerClub/smoothie-runner/sandbox"
 	"github.com/BayviewComputerClub/smoothie-runner/shared"
 	"github.com/BayviewComputerClub/smoothie-runner/util"
@@ -76,6 +77,8 @@ func (adapter Cpp98Adapter) Compile(session *shared.JudgeSession) (*exec.Cmd, er
 	return CppHelper(session, "gnu++98")
 }
 
+func (adapter Cpp98Adapter) JudgeFinished(tcr *pb.TestCaseResult) {}
+
 // c++11
 
 type Cpp11Adapter struct{}
@@ -87,6 +90,8 @@ func (adapter Cpp11Adapter) GetName() string {
 func (adapter Cpp11Adapter) Compile(session *shared.JudgeSession) (*exec.Cmd, error) {
 	return CppHelper(session, "gnu++11")
 }
+
+func (adapter Cpp11Adapter) JudgeFinished(tcr *pb.TestCaseResult) {}
 
 // c++14
 
@@ -100,6 +105,8 @@ func (adapter Cpp14Adapter) Compile(session *shared.JudgeSession) (*exec.Cmd, er
 	return CppHelper(session, "gnu++14")
 }
 
+func (adapter Cpp14Adapter) JudgeFinished(tcr *pb.TestCaseResult) {}
+
 // c++17
 
 type Cpp17Adapter struct{}
@@ -112,3 +119,4 @@ func (adapter Cpp17Adapter) Compile(session *shared.JudgeSession) (*exec.Cmd, er
 	return CppHelper(session, "gnu++17")
 }
 
+func (adapter Cpp17Adapter) JudgeFinished(tcr *pb.TestCaseResult) {}

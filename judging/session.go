@@ -76,7 +76,7 @@ func (session *GradeSession) StartJudging() {
 		Workspace:          session.Command.Dir,
 		HardTimeout:        time.Duration(session.Problem.TimeLimit) * time.Second * 2 + 10 * time.Second,
 		TimeLimit:          time.Duration(session.Problem.TimeLimit) * time.Second,
-		MemoryLimit:        uint64(session.Problem.MemLimit) * 1024 * 1024,
+		MemoryLimit:        session.JudgingSession.MemLimit * 1024 * 1024,
 		FSizeLimit:         session.JudgingSession.FSizeLimit,
 		NProcLimit:         session.JudgingSession.NProcLimit,
 		SandboxWithSeccomp: session.SandboxWithSeccomp,

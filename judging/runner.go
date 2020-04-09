@@ -18,8 +18,8 @@ var (
 )
 
 type JudgeJob struct {
-	Req *pb.TestSolutionRequest
-	Res chan shared.JudgeStatus
+	Req       *pb.TestSolutionRequest
+	Res       chan shared.JudgeStatus
 	Cancelled *bool
 }
 
@@ -76,10 +76,11 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 		Code:            req.Solution.Code,
 		Language:        req.Solution.Language,
 		OriginalRequest: req,
-		FSizeLimit: 1e9, // TODO output limit
+		FSizeLimit:      1e9, // TODO output limit
+		MemLimit:        uint64(req.Problem.MemLimit),
 
 		SandboxWithSeccomp: true,
-		SeccompProfile: util.SANDBOX_DEFAULT_PROFILE,
+		SeccompProfile:     util.SANDBOX_DEFAULT_PROFILE,
 	}
 
 	// resolve full path for workspace
@@ -157,13 +158,13 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 					Err: nil,
 					Res: pb.TestSolutionResponse{
 						TestCaseResult: &pb.TestCaseResult{
-							BatchNumber:          uint64(batchCase.BatchNum),
-							CaseNumber:           uint64(batchCase.CaseNum),
-							Result:               shared.OUTCOME_SKIP,
-							ResultInfo:           "",
+							BatchNumber: uint64(batchCase.BatchNum),
+							CaseNumber:  uint64(batchCase.CaseNum),
+							Result:      shared.OUTCOME_SKIP,
+							ResultInfo:  "",
 						},
-						CompletedTesting:     false,
-						CompileError:         "",
+						CompletedTesting: false,
+						CompileError:     "",
 					},
 				}
 				continue
@@ -202,24 +203,27 @@ func JudgeCase(batchNum uint64, caseNum uint64, session *shared.JudgeSession, re
 		Solution:    session.OriginalRequest.Solution,
 		CurrentCase: batchCase,
 
-		BatchNum: 		batchNum,
-		CaseNum: 		caseNum,
+		BatchNum: batchNum,
+		CaseNum:  caseNum,
 
-		Stderr:         "",
+		Stderr: "",
 
-		StreamResult:   batchRes,
-		StreamDone:     make(chan CaseReturn),
+		StreamResult: batchRes,
+		StreamDone:   make(chan CaseReturn),
 
 		Command:  session.RunCommand,
 		ExecFile: session.CommandFd,
 
 		SandboxWithSeccomp: session.SandboxWithSeccomp,
-		SeccompProfile: session.SeccompProfile,
+		SeccompProfile:     session.SeccompProfile,
 	}
 	go gradingSession.StartJudging()
 
 	// wait for case result
 	result := <-batchRes
+
+	// parse the stderr
+	session.LanguageAdapter.JudgeFinished(&result)
 
 	// send result
 	res <- shared.JudgeStatus{

@@ -17,7 +17,10 @@ type JudgeSession struct {
 	// limits set by adapters
 	FSizeLimit int64
 	NProcLimit int64
+	MemLimit uint64
 
 	SandboxWithSeccomp bool
 	SeccompProfile util.SandboxProfile
+
+	LanguageAdapter SmoothieAdapter
 }
