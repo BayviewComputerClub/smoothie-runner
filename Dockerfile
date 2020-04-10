@@ -1,4 +1,4 @@
-FROM golang:1.14.1-buster
+FROM bsscc/smoothie-runner-base-image:latest
 
 ENV PORT=6821
 ENV MAX_THREADS=1
@@ -15,9 +15,7 @@ EXPOSE $PORT
 COPY . /usr/src/server
 WORKDIR /usr/src/server
 
-RUN apt update -y && \
-    apt install build-essential openjdk-11-jdk-headless golang-goprotobuf-dev -y && \
-    chmod +x protocol/generate.sh && \
+RUN chmod +x protocol/generate.sh && \
     bash protocol/generate.sh && \
     cd main && \
     go build ./... && \
