@@ -28,7 +28,7 @@ Read more here: [https://docs.docker.com/engine/security/seccomp/](https://docs.
 
 Example:
 ```shell script
-$ docker run -p 6821:6821 --name=runner --cap-add=SYS_PTRACE bsscc/smoothie-runner
+$ docker run -p 6821:6821 --name=smoothie-runner --cap-add=SYS_PTRACE bsscc/smoothie-runner
 ```
 
 ## Building (Docker)
