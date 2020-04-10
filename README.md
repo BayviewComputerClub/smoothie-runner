@@ -18,7 +18,7 @@ It is highly recommended to run smoothie-runner in Docker. You can also run it o
 
 You can pull the image here (for now):
 ```shell script
-$ docker pull espidev/smoothie-runner
+$ docker pull bsscc/smoothie-runner
 ```
 
 When running the container, you'll want to to add the `--cap-add=SYS_PTRACE` option. 
