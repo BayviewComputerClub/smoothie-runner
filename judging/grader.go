@@ -108,6 +108,7 @@ func (grader EndTrimGrader) CompareStream(session *GradeSession, expectedAnswerF
 		ansLine := strings.ReplaceAll(strings.TrimRight(answerScan.Text(), " "), "\r", "")
 
 		if outLine != ansLine {
+			shared.Debug("compare: " + outLine + " and " + ansLine)
 			done <- CaseReturn{
 				Result:     shared.OUTCOME_WA,
 				ResultInfo: "Wrong char",

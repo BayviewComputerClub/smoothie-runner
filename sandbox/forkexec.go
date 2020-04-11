@@ -218,16 +218,14 @@ func (session *RunnerSession) ForkExecChild(context ForkExecContext) {
 func forkLeaveError(pipe int, err error) {
 	util.Warn("child: " + err.Error())
 	syscall.RawSyscall(unix.SYS_WRITE, uintptr(pipe), uintptr(unsafe.Pointer(&err)), unsafe.Sizeof(err))
-	for {
-		unix.Exit(0)
-	}
 }
 
 func handleChildFailed(pid uintptr) {
-	var wstatus syscall.WaitStatus
 	// make sure not blocked
 	syscall.Kill(int(pid), syscall.SIGKILL)
+
 	// child failed; wait for it to exit, to make sure the zombies don't accumulate
+	var wstatus syscall.WaitStatus
 	_, err := syscall.Wait4(int(pid), &wstatus, 0, nil)
 	for err == syscall.EINTR {
 		_, err = syscall.Wait4(int(pid), &wstatus, 0, nil)

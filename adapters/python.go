@@ -21,7 +21,8 @@ func (adapter Python3Adapter) Compile(session *shared.JudgeSession) (*exec.Cmd, 
 		return nil, err
 	}
 
-	c := exec.Command("python3", "main.py")
+	c := exec.Command("python3", "-BSu", "main.py")
 	c.Dir = session.Workspace
+	c.Env = append(c.Env, "PYTHON")
 	return c, nil
 }

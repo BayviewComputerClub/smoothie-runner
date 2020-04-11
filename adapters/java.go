@@ -102,9 +102,15 @@ func JavaHelper(session *shared.JudgeSession) (*exec.Cmd, error) {
 		return nil, err
 	}
 
+	// java agent option for sandboxing
+	javaagent := "-javaagent:"+path+"/"+shared.JAVA_SANDBOX_AGENT+"=policy:policy"
+	if !shared.SANDBOX {
+		javaagent = ""
+	}
+
 	// command for execution
 	c := exec.Command("java",
-		"-javaagent:"+path+"/"+shared.JAVA_SANDBOX_AGENT+"=policy:policy",
+		javaagent,
 		"-Xmx"+strconv.Itoa(int(session.OriginalRequest.Problem.MemLimit))+"M",
 		"-Xss128m", "-XX:+UseSerialGC", "-XX:ErrorFile=crash.log",
 		"Main")
