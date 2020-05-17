@@ -38,6 +38,8 @@ var (
 			"/usr/lib64":     true,
 			"/lib":           true,
 			"/usr/local/lib": true,
+
+			"main.py": true,
 		},
 		AllowWrite: map[string]bool{
 			"/dev/null": true,
@@ -108,6 +110,7 @@ var (
 						"getegid",
 						"getgid",
 						"getdents",
+						"getdents64",
 						"lseek",
 						"getrusage",
 						"sigaltstack",
@@ -135,6 +138,9 @@ var (
 
 						"times",
 						"time",
+
+						"set_thread_area",
+						"uname",
 					},
 				},
 				{
