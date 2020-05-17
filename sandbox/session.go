@@ -56,6 +56,9 @@ type RunnerSession struct {
 	ExecArgs []string
 	ExecEnv  []string
 
+	// Seccomp profile
+	Seccomp *unix.SockFprog
+
 	// Whether or not the initial exec was called
 	ExecUsed bool
 
@@ -125,6 +128,9 @@ func (session *RunnerSession) Start() {
 
 	// configure rlimits
 	session.InitRLimits()
+
+	// configure seccomp
+	session.CreateSeccompFilter()
 
 	// listen on channel
 	go session.WaitForStatus()

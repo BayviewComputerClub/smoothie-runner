@@ -176,8 +176,7 @@ func (session *RunnerSession) ForkExecChild(context ForkExecContext) {
 			return
 		}
 
-		//f, err := os.Create(strconv.Itoa(int(time.Now().UnixNano())) + "debug") // TODO
-
+		//f, _ := os.Create(strconv.Itoa(int(time.Now().UnixNano())) + "debug")
 
 		// wait for tracer
 		_, _, err1 = unix.RawSyscall(unix.SYS_KILL, pid, uintptr(unix.SIGSTOP), 0)
@@ -186,16 +185,19 @@ func (session *RunnerSession) ForkExecChild(context ForkExecContext) {
 			return
 		}
 
-
-		// seccomp
-		// calls prctl PR_SET_NO_NEW_PRIVS as well
-		err = session.LoadSeccompFilter() // TODO sometimes hangs for some reason
-		if err != nil {
-			//f.WriteString("BRUH2FAIL!") // TODO
-			forkLeaveError(pipe, err)
+		_, _, err1 = syscall.RawSyscall6(syscall.SYS_PRCTL, unix.PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0, 0)
+		if err1 != 0 {
+			forkLeaveError(pipe, err1)
 			return
 		}
 
+		// seccomp
+		// calls prctl PR_SET_NO_NEW_PRIVS as well
+		_, _, err1 = unix.RawSyscall(unix.SYS_SECCOMP, 1 /* SECCOMP_SET_MODE_FILTER */, 1 /* SECCOMP_FILTER_FLAG_TSYNC */, uintptr(unsafe.Pointer(session.Seccomp)))
+		if err1 != 0 {
+			forkLeaveError(pipe, err1)
+			return
+		}
 
 		// close all file descriptors in a brutal fashion :)
 		for i := 0; i < sysconf.SC_OPEN_MAX; i++ {
@@ -204,7 +206,6 @@ func (session *RunnerSession) ForkExecChild(context ForkExecContext) {
 				_ = unix.Close(i)
 			}
 		}
-
 	}
 
 	// set resource limits - rlimit is restricted once exeveat is called
