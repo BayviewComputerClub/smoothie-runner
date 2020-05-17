@@ -28,7 +28,7 @@ func (session *RunnerSession) Trace() {
 		shared.Debug("left tracer")
 		if err := recover(); err != nil {
 			util.Warn("trace panic recover: " + string(debug.Stack()))
-			session.InternalResultChan <- RunnerResult{Status: RunnerStatusISE, Error: string(debug.Stack()),}
+			session.InternalResultChan <- RunnerResult{Status: RunnerStatusISE, Error: string(debug.Stack())}
 		}
 	}()
 
@@ -127,6 +127,8 @@ func (session *RunnerSession) traceOnce(pid int, ws unix.WaitStatus, rusage unix
 			}
 			return true
 		} else { // before exec
+			shared.Debug("event: restarted stopped tracee process...")
+
 			err := unix.PtraceCont(pid, int(ws.Signal()))
 			if err != nil {
 				util.Warn("ptracecont signaled: " + err.Error())
@@ -141,12 +143,16 @@ func (session *RunnerSession) traceOnce(pid int, ws unix.WaitStatus, rusage unix
 		if !traced[pid] {
 			// set ptrace options
 			err = unix.PtraceSetOptions(session.Pid, unix.PTRACE_O_TRACESECCOMP|unix.PTRACE_O_EXITKILL|unix.PTRACE_O_TRACEFORK|unix.PTRACE_O_TRACECLONE|unix.PTRACE_O_TRACEEXEC|unix.PTRACE_O_TRACEVFORK)
+			shared.Debug("event: ptrace options are now set...")
 			if err != nil {
 				util.Warn("ptracesetoptions: " + err.Error())
 				session.InternalResultChan <- RunnerResult{Status: RunnerStatusISE, Error: err.Error()}
 				return true
 			}
 			traced[pid] = true
+
+			// ptracecont is later
+			shared.Debug("event: restarted stopped tracee process...")
 		}
 
 		if ws.StopSignal() == unix.SIGTRAP {
@@ -160,6 +166,7 @@ func (session *RunnerSession) traceOnce(pid int, ws unix.WaitStatus, rusage unix
 				}
 			case unix.PTRACE_EVENT_EXEC:
 				session.StartTime = time.Now()
+				shared.Debug("event: process has now execed (ptrace started)...")
 			}
 			err = unix.PtraceCont(pid, 0)
 		} else {
@@ -181,7 +188,6 @@ func (session *RunnerSession) traceOnce(pid int, ws unix.WaitStatus, rusage unix
 			session.InternalResultChan <- RunnerResult{Status: RunnerStatusISE, Error: err.Error()}
 			return true
 		}
-
 	}
 	return false
 }

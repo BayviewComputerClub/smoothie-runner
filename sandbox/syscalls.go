@@ -209,6 +209,13 @@ func (session *RunnerSession) CheckRestrictedCall(pid int, pregs *unix.PtraceReg
 		//wd, err = readStringAtAddr(pid, uintptr(pregs.Rsi))
 		//session.TraceCheckRead(pid, wd, pregs)
 
+	case unix.SYS_SETRLIMIT:
+		// setrlimit is needed before exec (it is called after the seccomp filter is loaded)
+		// after exec (running sandboxed program), setrlimit is restricted
+		if session.ExecUsed {
+			blockCall(pregs, pid)
+		}
+
 	default:
 		// ban by default (allowed calls should have been allowed by seccomp)
 		blockCall(pregs, pid)

@@ -151,10 +151,10 @@ func (session *RunnerSession) Start() {
 func (session *RunnerSession) Kill() {
 	curPid := os.Getpid()
 
-	// don't kill yourself
+	// don't kill the parent process
 	if session.Pid != curPid {
 		unix.Kill(session.Pid, syscall.SIGTERM)
-		unix.Kill(session.Pid, unix.SIGKILL) // heh why
+		unix.Kill(session.Pid, unix.SIGKILL)
 		var wstatus unix.WaitStatus
 		unix.Wait4(session.Pid, &wstatus, unix.WALL|unix.WNOHANG, nil) // collect zombie
 	}

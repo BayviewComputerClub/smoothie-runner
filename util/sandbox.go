@@ -141,6 +141,7 @@ var (
 
 						"set_thread_area",
 						"uname",
+						"setrlimit", // restricted once exec is called (this is to avoid memory issues before exec, especially when loading seccomp filter)
 					},
 				},
 				{

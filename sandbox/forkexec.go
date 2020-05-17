@@ -154,15 +154,6 @@ func (session *RunnerSession) ForkExecChild(context ForkExecContext) {
 		}
 	}
 
-	// set resource limits
-	if shared.RLIMITS {
-		err = session.SetRlimits()
-		if err != nil {
-			forkLeaveError(pipe, err)
-			return
-		}
-	}
-
 	// sync with parent
 	err2 = 0
 	r1, _, err1 = syscall.RawSyscall(syscall.SYS_WRITE, uintptr(pipe), uintptr(unsafe.Pointer(&err2)), unsafe.Sizeof(err2))
@@ -185,6 +176,9 @@ func (session *RunnerSession) ForkExecChild(context ForkExecContext) {
 			return
 		}
 
+		//f, err := os.Create(strconv.Itoa(int(time.Now().UnixNano())) + "debug") // TODO
+
+
 		// wait for tracer
 		_, _, err1 = unix.RawSyscall(unix.SYS_KILL, pid, uintptr(unix.SIGSTOP), 0)
 		if err1 != 0 {
@@ -192,22 +186,33 @@ func (session *RunnerSession) ForkExecChild(context ForkExecContext) {
 			return
 		}
 
+
 		// seccomp
 		// calls prctl PR_SET_NO_NEW_PRIVS as well
-		err = session.LoadSeccompFilter()
+		err = session.LoadSeccompFilter() // TODO sometimes hangs for some reason
 		if err != nil {
+			//f.WriteString("BRUH2FAIL!") // TODO
 			forkLeaveError(pipe, err)
 			return
 		}
-	}
 
-	if session.SandboxWithSeccomp && shared.SANDBOX {
+
 		// close all file descriptors in a brutal fashion :)
 		for i := 0; i < sysconf.SC_OPEN_MAX; i++ {
 			// check if file descriptor is not used
 			if _, ok := session.Files[i]; !ok {
 				_ = unix.Close(i)
 			}
+		}
+
+	}
+
+	// set resource limits - rlimit is restricted once exeveat is called
+	if shared.RLIMITS {
+		err = session.SetRlimits()
+		if err != nil {
+			forkLeaveError(pipe, err)
+			return
 		}
 	}
 
