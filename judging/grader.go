@@ -17,6 +17,7 @@ var (
 func init() {
 	graders["strict"] = StrictGrader{}
 	graders["endtrim"] = EndTrimGrader{}
+	graders["double"] = DoubleGrader{}
 }
 
 type Grader interface {
