@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"strconv"
 )
 
 var (
@@ -114,6 +115,78 @@ func (grader EndTrimGrader) CompareStream(session *GradeSession, expectedAnswerF
 				ResultInfo: "Wrong char",
 			}
 			return
+		}
+
+		outputHasNext = outputScan.Scan()
+		answerHasNext = answerScan.Scan()
+	}
+
+	// check trailing characters
+	if outputHasNext {
+		for outputScan.Scan() {
+			text := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(outputScan.Text(), " ", ""), "\n", ""), "\r", "")
+			if text != "" {
+				done <- CaseReturn{
+					Result:     shared.OUTCOME_WA,
+					ResultInfo: "Wrong char",
+				}
+				return
+			}
+		}
+	}
+
+	if answerHasNext {
+		for answerScan.Scan() {
+			text := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(answerScan.Text(), " ", ""), "\n", ""), "\r", "")
+			if text != "" {
+				done <- CaseReturn{
+					Result:     shared.OUTCOME_WA,
+					ResultInfo: "Ended early",
+				}
+				return
+			}
+		}
+	}
+
+	// AC if it completes successfully
+	done <- CaseReturn{
+		Result: shared.OUTCOME_AC,
+	}
+}
+
+// ***** Double Grader ??? *****
+// Endtrim grader but with double uncertainty of 0.000001
+
+type DoubleGrader struct{}
+
+func (grader DoubleGrader) CompareStream(session *GradeSession, expectedAnswerFile *os.File, done chan CaseReturn) {
+	// move index for reading the file to beginning
+	_, _ = session.OutputStream.Seek(0, 0)
+
+	// read from output stream and answer stream simultaneously per line
+	outputScan := bufio.NewScanner(session.OutputStream)
+	answerScan := bufio.NewScanner(expectedAnswerFile)
+
+	outputHasNext := outputScan.Scan()
+	answerHasNext := answerScan.Scan()
+
+	for outputHasNext && answerHasNext {
+		outLine := strings.ReplaceAll(strings.TrimRight(outputScan.Text(), " "), "\r", "")
+		ansLine := strings.ReplaceAll(strings.TrimRight(answerScan.Text(), " "), "\r", "")
+
+		if outLine != ansLine {
+			var ansDouble := strconv.ParseFloat(ansLine, 64)
+			var outDouble := strconv.ParseFloat(outLine, 64)
+			var max := ansDouble + 0.000001
+			var min := ansDouble - 0.000001
+			if (outDouble > max) || (outDouble < min){
+				shared.Debug("compare: " + outLine + " and " + ansLine)
+				done <- CaseReturn{
+					Result:     shared.OUTCOME_WA,
+					ResultInfo: "Wrong char",
+				}
+				return
+			}
 		}
 
 		outputHasNext = outputScan.Scan()
