@@ -172,7 +172,7 @@ func (grader FieldGrader) CompareStream(session *GradeSession, expectedAnswerFil
 	
 	// read from output stream
 	outputScan := bufio.NewScanner(session.OutputStream)
-	while(outputScan.Scan()){
+	for outputScan.Scan() {
 		outputs := strings.Fields(outputScan.Text())
 		for _, word := range outputs {
 			outputList.PushBack(word)
@@ -181,7 +181,7 @@ func (grader FieldGrader) CompareStream(session *GradeSession, expectedAnswerFil
 	
 	//read from answer stream
 	answerScan := bufio.NewScanner(expectedAnswerFile)
-	while(answerScan.Scan()){
+	for answerScan.Scan() {
 		answers := strings.Fields(answerScan.Text())
 		for _, word := range answers {
 			answerList.PushBack(word)
@@ -189,7 +189,7 @@ func (grader FieldGrader) CompareStream(session *GradeSession, expectedAnswerFil
 	}
 	
 	//Diff # words is bad
-	if(len(outputList) != len(answerList)){
+	if len(outputList)!=len(answerList) {
 		done <- CaseReturn{
 			Result:     shared.OUTCOME_WA,
 			ResultInfo: "Different number of words",
@@ -200,7 +200,7 @@ func (grader FieldGrader) CompareStream(session *GradeSession, expectedAnswerFil
 	//Go through output and answer lists
 	outputIterator := outputList.Front()
 	answerIterator := answerList.Front()
-	while (outputIterator != nil){
+	for outputIterator != nil {
 		outputWord := outputIterator.Value
 		answerWord := answerIterator.Value
 		if(outputWord != answerWord){
@@ -222,7 +222,7 @@ func (grader FieldGrader) CompareStream(session *GradeSession, expectedAnswerFil
 }
 
 // ***** Double Grader *****
-//Field Grader but with double uncertainty of 0.000001
+//Field Grader but with double uncertainty of 0.000005
 
 type DoubleGrader struct{}
 
@@ -236,7 +236,7 @@ func (grader DoubleGrader) CompareStream(session *GradeSession, expectedAnswerFi
 	
 	// read from output stream
 	outputScan := bufio.NewScanner(session.OutputStream)
-	while(outputScan.Scan()){
+	for outputScan.Scan() {
 		outputs := strings.Fields(outputScan.Text())
 		for _, word := range outputs {
 			outputList.PushBack(word)
@@ -245,7 +245,7 @@ func (grader DoubleGrader) CompareStream(session *GradeSession, expectedAnswerFi
 	
 	//read from answer stream
 	answerScan := bufio.NewScanner(expectedAnswerFile)
-	while(answerScan.Scan()){
+	for answerScan.Scan() {
 		answers := strings.Fields(answerScan.Text())
 		for _, word := range answers {
 			answerList.PushBack(word)
@@ -253,7 +253,7 @@ func (grader DoubleGrader) CompareStream(session *GradeSession, expectedAnswerFi
 	}
 	
 	//Diff # words is bad
-	if(len(outputList) != len(answerList)){
+	if len(outputList) != len(answerList) {
 		done <- CaseReturn{
 			Result:     shared.OUTCOME_WA,
 			ResultInfo: "Different number of words",
@@ -264,11 +264,11 @@ func (grader DoubleGrader) CompareStream(session *GradeSession, expectedAnswerFi
 	//Go through output and answer lists
 	outputIterator := outputList.Front()
 	answerIterator := answerList.Front()
-	while (outputIterator != nil){
+	for outputIterator != nil {
 		outputWord := outputIterator.Value
 		answerWord := answerIterator.Value
 		//not correct word
-		if(outputWord != answerWord){
+		if outputWord != answerWord {
 			//parse floats and check if outputs really are floats
 			outputFloat, outputFloatError := strconv.ParseFloat(outputWord, 64)
 			answerFloat, answerFloatError := strconv.ParseFloat(answerWord, 64)
