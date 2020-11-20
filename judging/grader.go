@@ -205,8 +205,8 @@ func (grader FieldGrader) CompareStream(session *GradeSession, expectedAnswerFil
 	outputIterator := outputList.Front()
 	answerIterator := answerList.Front()
 	for outputIterator != nil {
-		outputWord := outputIterator.Value
-		answerWord := answerIterator.Value
+		outputWord := (outputIterator.Value).(string)
+		answerWord := (answerIterator.Value).(string)
 		if(outputWord != answerWord){
 			done <- CaseReturn{
 				Result:     shared.OUTCOME_WA,
@@ -273,8 +273,8 @@ func (grader DoubleGrader) CompareStream(session *GradeSession, expectedAnswerFi
 	outputIterator := outputList.Front()
 	answerIterator := answerList.Front()
 	for outputIterator != nil {
-		outputWord := outputIterator.Value
-		answerWord := answerIterator.Value
+		outputWord := (outputIterator.Value).(string)
+		answerWord := (answerIterator.Value).(string)
 		//not correct word
 		if outputWord != answerWord {
 			//parse floats and check if outputs really are floats
