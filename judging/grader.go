@@ -169,6 +169,8 @@ func (grader FieldGrader) CompareStream(session *GradeSession, expectedAnswerFil
 	//Lists for words
 	outputList := list.New()
 	answerList := list.New()
+	outputLength := 0
+	answerLength := 0
 	
 	// read from output stream
 	outputScan := bufio.NewScanner(session.OutputStream)
@@ -176,6 +178,7 @@ func (grader FieldGrader) CompareStream(session *GradeSession, expectedAnswerFil
 		outputs := strings.Fields(outputScan.Text())
 		for _, word := range outputs {
 			outputList.PushBack(word)
+			outputLength++
 		}
 	}
 	
@@ -185,11 +188,12 @@ func (grader FieldGrader) CompareStream(session *GradeSession, expectedAnswerFil
 		answers := strings.Fields(answerScan.Text())
 		for _, word := range answers {
 			answerList.PushBack(word)
+			answerLength++
 		}
 	}
 	
 	//Diff # words is bad
-	if len(outputList)!=len(answerList) {
+	if answerLength != outputLength {
 		done <- CaseReturn{
 			Result:     shared.OUTCOME_WA,
 			ResultInfo: "Different number of words",
@@ -233,6 +237,8 @@ func (grader DoubleGrader) CompareStream(session *GradeSession, expectedAnswerFi
 	//Lists for words
 	outputList := list.New()
 	answerList := list.New()
+	outputLength := 0
+	answerLength := 0
 	
 	// read from output stream
 	outputScan := bufio.NewScanner(session.OutputStream)
@@ -240,6 +246,7 @@ func (grader DoubleGrader) CompareStream(session *GradeSession, expectedAnswerFi
 		outputs := strings.Fields(outputScan.Text())
 		for _, word := range outputs {
 			outputList.PushBack(word)
+			outputLength++
 		}
 	}
 	
@@ -249,11 +256,12 @@ func (grader DoubleGrader) CompareStream(session *GradeSession, expectedAnswerFi
 		answers := strings.Fields(answerScan.Text())
 		for _, word := range answers {
 			answerList.PushBack(word)
+			answerLength++
 		}
 	}
 	
 	//Diff # words is bad
-	if len(outputList) != len(answerList) {
+	if outputLength != answerLength {
 		done <- CaseReturn{
 			Result:     shared.OUTCOME_WA,
 			ResultInfo: "Different number of words",
