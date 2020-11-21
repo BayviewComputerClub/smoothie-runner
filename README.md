@@ -35,7 +35,7 @@ $ docker run -p 6821:6821 --name=smoothie-runner --cap-add=SYS_PTRACE bsscc/smoo
 A Dockerfile is provided in the repository.
 
 ## Building (Binary)
-If you want to compile the program, make sure you have Go 1.13 installed, and that you are compiling for Linux-x64. You can simply run the build script:
+If you want to compile the program, make sure you have Go 1.15 installed, and that you are compiling for Linux-x64. You can simply run the build script:
 ```shell script
 $ ./build.sh
 ```
