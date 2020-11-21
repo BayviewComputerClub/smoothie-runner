@@ -158,7 +158,7 @@ func (grader EndTrimGrader) CompareStream(session *GradeSession, expectedAnswerF
 }
 
 // ***** Field Grader *****
-//Judges submissions word by word
+// Judges submissions word by word
 
 type FieldGrader struct{}
 
@@ -166,7 +166,7 @@ func (grader FieldGrader) CompareStream(session *GradeSession, expectedAnswerFil
 	// move index for reading the file to beginning
 	_, _ = session.OutputStream.Seek(0, 0)
 	
-	//Lists for words
+	// Lists for words
 	outputList := list.New()
 	answerList := list.New()
 	outputLength := 0
@@ -182,7 +182,7 @@ func (grader FieldGrader) CompareStream(session *GradeSession, expectedAnswerFil
 		}
 	}
 	
-	//read from answer stream
+	// read from answer stream
 	answerScan := bufio.NewScanner(expectedAnswerFile)
 	for answerScan.Scan() {
 		answers := strings.Fields(answerScan.Text())
@@ -192,7 +192,7 @@ func (grader FieldGrader) CompareStream(session *GradeSession, expectedAnswerFil
 		}
 	}
 	
-	//Diff # words is bad
+	// Diff # words is bad
 	if answerLength != outputLength {
 		done <- CaseReturn{
 			Result:     shared.OUTCOME_WA,
@@ -201,20 +201,20 @@ func (grader FieldGrader) CompareStream(session *GradeSession, expectedAnswerFil
 		return
 	}
 	
-	//Go through output and answer lists
+	// Go through output and answer lists
 	outputIterator := outputList.Front()
 	answerIterator := answerList.Front()
 	for outputIterator != nil {
 		outputWord := (outputIterator.Value).(string)
 		answerWord := (answerIterator.Value).(string)
-		if(outputWord != answerWord){
+		if outputWord != answerWord {
 			done <- CaseReturn{
 				Result:     shared.OUTCOME_WA,
 				ResultInfo: "Wrong char",
 			}
 			return
 		}
-		//advance iterator
+		// advance iterator
 		outputIterator = outputIterator.Next()
 		answerIterator = answerIterator.Next()
 	}
@@ -226,7 +226,7 @@ func (grader FieldGrader) CompareStream(session *GradeSession, expectedAnswerFil
 }
 
 // ***** Double Grader *****
-//Field Grader but with double uncertainty of 0.000005
+// Field Grader but with double uncertainty of 0.000005
 
 type DoubleGrader struct{}
 
@@ -250,7 +250,7 @@ func (grader DoubleGrader) CompareStream(session *GradeSession, expectedAnswerFi
 		}
 	}
 	
-	//read from answer stream
+	// read from answer stream
 	answerScan := bufio.NewScanner(expectedAnswerFile)
 	for answerScan.Scan() {
 		answers := strings.Fields(answerScan.Text())
@@ -260,7 +260,7 @@ func (grader DoubleGrader) CompareStream(session *GradeSession, expectedAnswerFi
 		}
 	}
 	
-	//Diff # words is bad
+	// Diff # words is bad
 	if outputLength != answerLength {
 		done <- CaseReturn{
 			Result:     shared.OUTCOME_WA,
@@ -269,40 +269,41 @@ func (grader DoubleGrader) CompareStream(session *GradeSession, expectedAnswerFi
 		return
 	}
 	
-	//Go through output and answer lists
+	// Go through output and answer lists
 	outputIterator := outputList.Front()
 	answerIterator := answerList.Front()
 	for outputIterator != nil {
 		outputWord := (outputIterator.Value).(string)
 		answerWord := (answerIterator.Value).(string)
-		//not correct word
+		// not correct word
 		if outputWord != answerWord {
-			//parse floats and check if outputs really are floats
+			// parse floats and check if outputs really are floats
 			outputFloat, outputFloatError := strconv.ParseFloat(outputWord, 64)
 			answerFloat, answerFloatError := strconv.ParseFloat(answerWord, 64)
-			outputIsFloat := (outputFloatError == nil)
-			answerIsFloat := (answerFloatError == nil)
-			//answer's not a float
-			if(!answerIsFloat){
+			outputIsFloat := outputFloatError == nil
+			answerIsFloat := answerFloatError == nil
+
+			// answer's not a float
+			if !answerIsFloat {
 				done <- CaseReturn{
 					Result:     shared.OUTCOME_WA,
 					ResultInfo: "Wrong char",
 				}
 				return
 			}
-			//output's not a float
-			if(!outputIsFloat){
+			// output's not a float
+			if !outputIsFloat {
 				done <- CaseReturn{
 					Result:     shared.OUTCOME_WA,
 					ResultInfo: "Wrong char",
 				}
 				return
 			}
-			//they are both floats
+			// they are both floats
 			max := answerFloat + 0.000005
 			min := answerFloat - 0.000005
-			//not within the margin of error >:(
-			if(outputFloat > max || outputFloat < min){
+			// not within the margin of error >:(
+			if outputFloat > max || outputFloat < min {
 				done <- CaseReturn{
 					Result:     shared.OUTCOME_WA,
 					ResultInfo: "Wrong double",
@@ -310,7 +311,7 @@ func (grader DoubleGrader) CompareStream(session *GradeSession, expectedAnswerFi
 				return
 			}
 		}
-		//advance iterator
+		// advance iterator
 		outputIterator = outputIterator.Next()
 		answerIterator = answerIterator.Next()
 	}
