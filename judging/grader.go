@@ -7,6 +7,8 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"strconv"
+	"container/list"
 )
 
 var (
@@ -16,6 +18,8 @@ var (
 func init() {
 	graders["strict"] = StrictGrader{}
 	graders["endtrim"] = EndTrimGrader{}
+	graders["double"] = DoubleGrader{}
+	graders["field"] = FieldGrader{}
 }
 
 type Grader interface {
@@ -147,6 +151,170 @@ func (grader EndTrimGrader) CompareStream(session *GradeSession, expectedAnswerF
 		}
 	}
 
+	// AC if it completes successfully
+	done <- CaseReturn{
+		Result: shared.OUTCOME_AC,
+	}
+}
+
+// ***** Field Grader *****
+//Judges submissions word by word
+
+type FieldGrader struct{}
+
+func (grader FieldGrader) CompareStream(session *GradeSession, expectedAnswerFile *os.File, done chan CaseReturn) {
+	// move index for reading the file to beginning
+	_, _ = session.OutputStream.Seek(0, 0)
+	
+	//Lists for words
+	outputList := list.New()
+	answerList := list.New()
+	outputLength := 0
+	answerLength := 0
+	
+	// read from output stream
+	outputScan := bufio.NewScanner(session.OutputStream)
+	for outputScan.Scan() {
+		outputs := strings.Fields(outputScan.Text())
+		for _, word := range outputs {
+			outputList.PushBack(word)
+			outputLength++
+		}
+	}
+	
+	//read from answer stream
+	answerScan := bufio.NewScanner(expectedAnswerFile)
+	for answerScan.Scan() {
+		answers := strings.Fields(answerScan.Text())
+		for _, word := range answers {
+			answerList.PushBack(word)
+			answerLength++
+		}
+	}
+	
+	//Diff # words is bad
+	if answerLength != outputLength {
+		done <- CaseReturn{
+			Result:     shared.OUTCOME_WA,
+			ResultInfo: "Different number of words",
+		}
+		return
+	}
+	
+	//Go through output and answer lists
+	outputIterator := outputList.Front()
+	answerIterator := answerList.Front()
+	for outputIterator != nil {
+		outputWord := (outputIterator.Value).(string)
+		answerWord := (answerIterator.Value).(string)
+		if(outputWord != answerWord){
+			done <- CaseReturn{
+				Result:     shared.OUTCOME_WA,
+				ResultInfo: "Wrong char",
+			}
+			return
+		}
+		//advance iterator
+		outputIterator = outputIterator.Next()
+		answerIterator = answerIterator.Next()
+	}
+	
+	// AC if it completes successfully
+	done <- CaseReturn{
+		Result: shared.OUTCOME_AC,
+	}
+}
+
+// ***** Double Grader *****
+//Field Grader but with double uncertainty of 0.000005
+
+type DoubleGrader struct{}
+
+func (grader DoubleGrader) CompareStream(session *GradeSession, expectedAnswerFile *os.File, done chan CaseReturn) {
+	// move index for reading the file to beginning
+	_, _ = session.OutputStream.Seek(0, 0)
+	
+	//Lists for words
+	outputList := list.New()
+	answerList := list.New()
+	outputLength := 0
+	answerLength := 0
+	
+	// read from output stream
+	outputScan := bufio.NewScanner(session.OutputStream)
+	for outputScan.Scan() {
+		outputs := strings.Fields(outputScan.Text())
+		for _, word := range outputs {
+			outputList.PushBack(word)
+			outputLength++
+		}
+	}
+	
+	//read from answer stream
+	answerScan := bufio.NewScanner(expectedAnswerFile)
+	for answerScan.Scan() {
+		answers := strings.Fields(answerScan.Text())
+		for _, word := range answers {
+			answerList.PushBack(word)
+			answerLength++
+		}
+	}
+	
+	//Diff # words is bad
+	if outputLength != answerLength {
+		done <- CaseReturn{
+			Result:     shared.OUTCOME_WA,
+			ResultInfo: "Different number of words",
+		}
+		return
+	}
+	
+	//Go through output and answer lists
+	outputIterator := outputList.Front()
+	answerIterator := answerList.Front()
+	for outputIterator != nil {
+		outputWord := (outputIterator.Value).(string)
+		answerWord := (answerIterator.Value).(string)
+		//not correct word
+		if outputWord != answerWord {
+			//parse floats and check if outputs really are floats
+			outputFloat, outputFloatError := strconv.ParseFloat(outputWord, 64)
+			answerFloat, answerFloatError := strconv.ParseFloat(answerWord, 64)
+			outputIsFloat := (outputFloatError == nil)
+			answerIsFloat := (answerFloatError == nil)
+			//answer's not a float
+			if(!answerIsFloat){
+				done <- CaseReturn{
+					Result:     shared.OUTCOME_WA,
+					ResultInfo: "Wrong char",
+				}
+				return
+			}
+			//output's not a float
+			if(!outputIsFloat){
+				done <- CaseReturn{
+					Result:     shared.OUTCOME_WA,
+					ResultInfo: "Wrong char",
+				}
+				return
+			}
+			//they are both floats
+			max := answerFloat + 0.000005
+			min := answerFloat - 0.000005
+			//not within the margin of error >:(
+			if(outputFloat > max || outputFloat < min){
+				done <- CaseReturn{
+					Result:     shared.OUTCOME_WA,
+					ResultInfo: "Wrong double",
+				}
+				return
+			}
+		}
+		//advance iterator
+		outputIterator = outputIterator.Next()
+		answerIterator = answerIterator.Next()
+	}
+	
 	// AC if it completes successfully
 	done <- CaseReturn{
 		Result: shared.OUTCOME_AC,
