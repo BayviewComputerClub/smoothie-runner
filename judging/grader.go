@@ -126,7 +126,8 @@ func (grader EndTrimGrader) CompareStream(session *GradeSession, expectedAnswerF
 
 	// check trailing characters
 	if outputHasNext {
-		for outputScan.Scan() {
+		first := true
+		for first || outputScan.Scan() {
 			text := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(outputScan.Text(), " ", ""), "\n", ""), "\r", "")
 			if text != "" {
 				done <- CaseReturn{
@@ -135,11 +136,14 @@ func (grader EndTrimGrader) CompareStream(session *GradeSession, expectedAnswerF
 				}
 				return
 			}
+			first = false
 		}
 	}
 
+	// check if answer is empty
 	if answerHasNext {
-		for answerScan.Scan() {
+		first := true
+		for first || answerScan.Scan() {
 			text := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(answerScan.Text(), " ", ""), "\n", ""), "\r", "")
 			if text != "" {
 				done <- CaseReturn{
@@ -148,6 +152,7 @@ func (grader EndTrimGrader) CompareStream(session *GradeSession, expectedAnswerF
 				}
 				return
 			}
+			first = false
 		}
 	}
 
