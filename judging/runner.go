@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"sync/atomic"
+	"time"
 )
 
 var (
@@ -170,8 +171,16 @@ func TestSolution(req *pb.TestSolutionRequest, res chan shared.JudgeStatus, canc
 				continue
 			}
 
+			// allow kernel to catch up
+			time.Sleep(25 * time.Millisecond)
+
 			// judge the case and get the result
 			result := JudgeCase(uint64(batchCase.BatchNum), uint64(batchCase.CaseNum), &session, res, &batchCase)
+
+			// try again if there was an internal server error
+			if result.Result == shared.OUTCOME_ISE {
+				result = JudgeCase(uint64(batchCase.BatchNum), uint64(batchCase.CaseNum), &session, res, &batchCase)
+			}
 
 			if result.Result != shared.OUTCOME_AC {
 				batchFailed = true
